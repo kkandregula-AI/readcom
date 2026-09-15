@@ -1,15 +1,13 @@
-/* Local Reading Companion — minimal offline service worker.
-   Deploy next to index.html. Caches the app shell so it opens offline.
-   The on-device model is separate: once Gemini Nano is downloaded by
-   Chrome, inference itself already works with no network. */
+/* Local Reading Companion — service worker.
+   Designed & Architected by Krishnamurthy Kandregula · Made by Claude
 
-const CACHE = "reading-companion-v1";
-const SHELL = [
-  "./",
-  "./index.html",
-  // Fonts are same-origin? No — they're on Google's CDN. Cache them at runtime
-  // (see fetch handler) so first online visit primes them for offline use.
-];
+   v2: HTML is now NETWORK-FIRST, so a freshly deployed page is always picked up
+   when online (this fixes the "old version keeps showing" problem). The app
+   still works offline by falling back to the cached copy. Fonts and libraries
+   stay cache-first for speed; model weights are cached by WebLLM itself. */
+
+const CACHE = "reading-companion-v2";     // bump this string on any deploy to force a refresh
+const SHELL = ["./", "./index.html"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -17,35 +15,43 @@ self.addEventListener("install", (e) => {
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
-// Cache-first for the shell + fonts; network-first would also be fine.
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
+  const url = new URL(req.url);
 
+  // The page itself: network-first so new deploys show immediately; cache is the offline fallback.
+  const isHTML = req.mode === "navigate" || req.destination === "document"
+    || url.pathname.endsWith("/") || url.pathname.endsWith("index.html");
+  if (isHTML) {
+    e.respondWith(
+      fetch(req)
+        .then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); return res; })
+        .catch(() => caches.match(req).then((hit) => hit || caches.match("./index.html")))
+    );
+    return;
+  }
+
+  // Everything else (fonts, CDN libraries): cache-first, filled in at runtime.
   e.respondWith(
     caches.match(req).then((hit) => {
       if (hit) return hit;
       return fetch(req).then((res) => {
-        // Runtime-cache successful same-origin + font responses.
-        const url = new URL(req.url);
         const cacheable =
           url.origin === location.origin ||
           url.hostname.endsWith("fonts.googleapis.com") ||
           url.hostname.endsWith("fonts.gstatic.com") ||
           url.hostname.endsWith("esm.run") ||
-          url.hostname.endsWith("jsdelivr.net"); // WebLLM library (weights are cached by WebLLM itself)
-        if (cacheable && res.ok) {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy));
-        }
+          url.hostname.endsWith("jsdelivr.net");
+        if (cacheable && res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); }
         return res;
-      }).catch(() => hit); // offline + uncached → whatever we have
+      }).catch(() => hit);
     })
   );
 });
