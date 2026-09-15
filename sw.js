@@ -37,7 +37,9 @@ self.addEventListener("fetch", (e) => {
         const cacheable =
           url.origin === location.origin ||
           url.hostname.endsWith("fonts.googleapis.com") ||
-          url.hostname.endsWith("fonts.gstatic.com");
+          url.hostname.endsWith("fonts.gstatic.com") ||
+          url.hostname.endsWith("esm.run") ||
+          url.hostname.endsWith("jsdelivr.net"); // WebLLM library (weights are cached by WebLLM itself)
         if (cacheable && res.ok) {
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put(req, copy));

@@ -4,34 +4,37 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Local Reading Companion</title>
-<meta name="description" content="Summarize, explain, and translate any text entirely on your own device. Nothing is uploaded." />
+<meta name="description" content="Summarize, explain, and translate any text on your own device. Nothing is uploaded." />
 <meta name="theme-color" content="#16624B" />
+
+<!-- iOS home-screen packaging: iOS ignores the manifest icon, so it needs these. -->
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Reading" />
+<link rel="apple-touch-icon" href="data:image/png;base64,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" />
 
 <!--
   ============================================================================
-  LOCAL READING COMPANION  —  on-device AI PWA skeleton
+  LOCAL READING COMPANION  —  on-device AI PWA
   Designed & Architected by Krishnamurthy Kandregula · Made by Claude
   ============================================================================
-  WHAT THIS IS
-    A single-file reading tool that runs inference on the user's machine via
-    Chrome's built-in Prompt API (Gemini Nano). No server calls, no keys, no
-    token bill. Falls back to a hosted endpoint you control when the on-device
-    model is absent.
+  ENGINE CASCADE (best available wins, per device):
+    1. Chrome Prompt API (Gemini Nano)   — desktop Chrome 148+. No download you manage.
+    2. WebGPU small model (WebLLM)        — iPhone iOS 26+, and any browser w/ WebGPU
+                                            but no Prompt API. ~a few hundred MB, once.
+    3. Hosted fallback (your proxy)       — everything else. Set HOSTED_ENDPOINT.
+  Each tier auto-falls-through to the next on unavailability or failure.
 
-  THE THREE THINGS YOU'LL EXTEND
-    1. TASKS          — see the SYSTEM_PROMPTS object below.
-    2. HOSTED FALLBACK — see callHostedModel(); wire it to your own proxy.
-    3. OFFLINE        — ships with a sibling sw.js. App works without it,
-                        just no offline caching. Deploy both files together.
-
-  REQUIREMENTS FOR THE ON-DEVICE PATH (as of Chrome 148, Q2 2026)
-    Desktop Chrome (Win10/11, macOS 13+, Linux, Chromebook Plus). No iOS.
-    First use downloads ~2.7–4GB (Gemini Nano). We surface that as progress.
+  iPhone notes:
+    - Gemini Nano does NOT exist on iOS (all iOS browsers are WebKit), so iPhone
+      runs tier 2 or 3. Tier 2 needs iOS 26+ (WebGPU) and a recent device.
+    - No iOS install prompt: users add via Share -> Add to Home Screen.
+    - WebLLM caches model weights itself (Cache API); the shell sw.js does not.
   ============================================================================
 -->
 
-<!-- Manifest inlined as a data URI so the app stays single-file. -->
-<link rel="manifest" href='data:application/manifest+json,{"name":"Local Reading Companion","short_name":"Reading","start_url":"./","scope":"./","display":"standalone","background_color":"%23EFF1F1","theme_color":"%2316624B","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 512 512%22%3E%3Crect width=%22512%22 height=%22512%22 rx=%2296%22 fill=%22%2316624B%22/%3E%3Ctext x=%2250%25%22 y=%2258%25%22 font-family=%22Georgia,serif%22 font-size=%22300%22 fill=%22%23EFF1F1%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3ER%3C/text%3E%3C/svg%3E","sizes":"512x512","type":"image/svg+xml","purpose":"any"}]}' />
+<link rel="manifest" href='data:application/manifest+json,{"name":"Local Reading Companion","short_name":"Reading","start_url":"./","scope":"./","display":"standalone","background_color":"%23EFF1F1","theme_color":"%2316624B","icons":[{"src":"data:image/png;base64,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","sizes":"180x180","type":"image/png","purpose":"any"}]}' />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -39,48 +42,23 @@
 
 <style>
   :root{
-    --paper:#EFF1F1;
-    --surface:#FAFBFA;
-    --ink:#191D1C;
-    --muted:#59625E;
-    --line:#DCE0DD;
-    --pine:#16624B;      /* ready / on-device / live */
-    --amber:#B5791B;     /* downloading */
-    --clay:#A6442F;      /* unavailable / error */
-    --output-bg:#F1F5F2;
-    --focus:#2A7D63;
-    --radius:10px;
-    --maxw:760px;
+    --paper:#EFF1F1; --surface:#FAFBFA; --ink:#191D1C; --muted:#59625E;
+    --line:#DCE0DD; --pine:#16624B; --amber:#B5791B; --clay:#A6442F;
+    --output-bg:#F1F5F2; --focus:#2A7D63; --radius:10px; --maxw:760px;
   }
-
   *{box-sizing:border-box}
   html,body{margin:0}
   body{
-    background:var(--paper);
-    color:var(--ink);
+    background:var(--paper); color:var(--ink);
     font-family:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-    font-size:16px;
-    line-height:1.5;
-    -webkit-font-smoothing:antialiased;
+    font-size:16px; line-height:1.5; -webkit-font-smoothing:antialiased;
     padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
   .wrap{max-width:var(--maxw);margin:0 auto;padding:20px 20px 48px}
-
-  /* ---- Header: name left, live on-device status right ---- */
-  header{
-    display:flex;align-items:center;justify-content:space-between;gap:16px;
-    padding:14px 0 22px;border-bottom:1px solid var(--line);
-  }
+  header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 0 22px;border-bottom:1px solid var(--line)}
   .mark{font-weight:600;font-size:1.02rem;letter-spacing:-0.01em}
   .mark span{color:var(--muted);font-weight:400}
-
-  /* The hero: this pill IS the promise of the product. */
-  .status{
-    display:inline-flex;align-items:center;gap:8px;
-    padding:6px 12px 6px 10px;border-radius:999px;
-    border:1px solid var(--line);background:var(--surface);
-    font-size:0.82rem;color:var(--muted);white-space:nowrap;
-  }
+  .status{display:inline-flex;align-items:center;gap:8px;padding:6px 12px 6px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-size:0.82rem;color:var(--muted);white-space:nowrap}
   .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
   .status[data-state="checking"] .dot{background:var(--muted);animation:pulse 1.2s ease-in-out infinite}
   .status[data-state="ready"]{color:var(--pine);border-color:#BFD9CE}
@@ -91,65 +69,35 @@
   .status[data-state="unavailable"] .dot{background:var(--clay)}
   @keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
   @media (prefers-reduced-motion:reduce){.status[data-state="checking"] .dot{animation:none}}
-
-  /* ---- Input ---- */
   .field{margin-top:26px}
   .field-label{font-size:.86rem;color:var(--muted);margin-bottom:8px}
-  textarea{
-    width:100%;min-height:172px;resize:vertical;
-    padding:14px 15px;border:1px solid var(--line);border-radius:var(--radius);
-    background:var(--surface);color:var(--ink);
-    font-family:"Newsreader",Georgia,serif;font-size:1.06rem;line-height:1.6;
-  }
+  textarea{width:100%;min-height:172px;resize:vertical;padding:14px 15px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);color:var(--ink);font-family:"Newsreader",Georgia,serif;font-size:1.06rem;line-height:1.6}
   textarea::placeholder{color:#9AA29D;font-style:italic}
-  textarea:focus-visible,select:focus-visible,button:focus-visible{
-    outline:2px solid var(--focus);outline-offset:2px;
-  }
+  textarea:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
   textarea.drop{border-color:var(--pine);background:#EEF5F1}
-
-  /* ---- Actions ---- */
   .actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:14px}
-  button{
-    font:inherit;cursor:pointer;border-radius:var(--radius);
-    padding:10px 16px;border:1px solid var(--ink);
-    background:var(--ink);color:var(--paper);font-weight:500;
-    transition:transform .04s ease;
-  }
+  button{font:inherit;cursor:pointer;border-radius:var(--radius);padding:10px 16px;border:1px solid var(--ink);background:var(--ink);color:var(--paper);font-weight:500;transition:transform .04s ease}
   button:active{transform:translateY(1px)}
   button.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
   button:disabled{opacity:.42;cursor:not-allowed}
   .translate-group{display:inline-flex;align-items:stretch;border:1px solid var(--ink);border-radius:var(--radius);overflow:hidden}
   .translate-group button{border:none;border-radius:0}
-  .translate-group select{
-    border:none;border-left:1px solid rgba(239,241,241,.35);
-    background:var(--ink);color:var(--paper);font:inherit;padding:0 10px;cursor:pointer;
-  }
+  .translate-group select{border:none;border-left:1px solid rgba(239,241,241,.35);background:var(--ink);color:var(--paper);font:inherit;padding:0 10px;cursor:pointer}
   .spacer{flex:1 1 auto}
-
-  /* ---- Output: the reading surface ---- */
   .out-head{display:flex;align-items:center;justify-content:space-between;margin-top:30px;margin-bottom:8px}
   .out-head .field-label{margin:0}
   .out-tools{display:flex;gap:8px}
   .out-tools button{padding:6px 11px;font-size:.82rem;background:transparent;color:var(--muted);border-color:var(--line)}
   .out-tools button:hover{color:var(--ink)}
-
-  .output{
-    border:1px solid var(--line);border-radius:var(--radius);
-    background:var(--output-bg);min-height:120px;padding:18px 20px;
-    font-family:"Newsreader",Georgia,serif;font-size:1.12rem;line-height:1.66;
-    white-space:pre-wrap;word-break:break-word;
-  }
+  .output{border:1px solid var(--line);border-radius:var(--radius);background:var(--output-bg);min-height:120px;padding:18px 20px;font-family:"Newsreader",Georgia,serif;font-size:1.12rem;line-height:1.66;white-space:pre-wrap;word-break:break-word}
   .output.empty{color:var(--muted);font-style:italic;display:flex;align-items:center}
   .output .caret{display:inline-block;width:2px;height:1.05em;background:var(--pine);margin-left:1px;vertical-align:text-bottom;animation:blink 1s steps(1) infinite}
   @keyframes blink{50%{opacity:0}}
   @media (prefers-reduced-motion:reduce){.output .caret{animation:none}}
-
   .note{margin-top:12px;font-size:.82rem;color:var(--muted)}
   .note code{font-family:"IBM Plex Mono",ui-monospace,monospace;background:#E4E8E5;padding:1px 5px;border-radius:4px}
-
   footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);font-size:.8rem;color:var(--muted)}
   footer b{font-weight:500;color:var(--ink)}
-
   @media (max-width:520px){
     header{flex-direction:column;align-items:flex-start;gap:12px}
     .translate-group{width:100%}
@@ -211,23 +159,33 @@
 <script>
 "use strict";
 
-/* =========================================================================
+/* ========================================================================
    1. CONFIG
-   ========================================================================= */
+   ======================================================================== */
 
-// Wire this to YOUR proxy for the hosted fallback (see callHostedModel).
-// Leave empty ("") to run on-device only.
+// Tier 3 fallback. Wire to YOUR proxy (keeps any API key server-side).
+// Leave "" to run on-device only.
 const HOSTED_ENDPOINT = "";
+
+// Tier 2 (WebGPU) library + model. The picker below falls back gracefully
+// if this exact id ever drifts. Smaller = friendlier to iPhones.
+const WEBLLM_CDN = "https://esm.run/@mlc-ai/web-llm";
+const MODEL_PREFS = [
+  "Llama-3.2-1B-Instruct-q4f16_1-MLC",
+  "Qwen2.5-1.5B-Instruct-q4f16_1-MLC",
+  "Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
+  "SmolLM2-1.7B-Instruct-q4f16_1-MLC"
+];
 
 const SYSTEM_PROMPTS = {
   summarize: "You are a concise summarizer. Return the key points of the text as a short, faithful summary. No preamble, no opinions.",
   explain:   "You explain text in plain language for a general reader. Keep the meaning exact; simplify only the wording.",
-  translate: (lang) => `You are a translator. Translate the user's text into ${lang}. Output only the translation, nothing else.`
+  translate: (lang) => "You are a translator. Translate the user's text into " + lang + ". Output only the translation, nothing else."
 };
 
-/* =========================================================================
+/* ========================================================================
    2. STATE + ELEMENTS
-   ========================================================================= */
+   ======================================================================== */
 
 const el = {
   status: document.getElementById("status"),
@@ -242,230 +200,184 @@ const el = {
 };
 const taskButtons = [...document.querySelectorAll("[data-task]")];
 
-let onDeviceState = "checking";   // checking | ready | downloading | unavailable
-let currentController = null;      // AbortController for the active run
+let currentController = null;   // AbortController for the active run
+let webllmModule = null;
+let webllmEngine = null;
 
-/* =========================================================================
-   3. ON-DEVICE AVAILABILITY  (the hero resolves here)
-   ========================================================================= */
+/* ========================================================================
+   3. CAPABILITY DETECTION  (the hero resolves here)
+   ======================================================================== */
 
 function hasPromptAPI(){ return "LanguageModel" in self; }
+function webgpuSupported(){ return "gpu" in navigator; }
 
 function setStatus(state, text){
-  onDeviceState = state;
   el.status.dataset.state = state;
   el.statusText.textContent = text;
 }
 
-// Normalizes across Chrome versions: newer returns
-// "available" | "downloadable" | "downloading" | "unavailable".
 async function checkAvailability(){
-  if(!hasPromptAPI()){
-    setStatus("unavailable", HOSTED_ENDPOINT ? "Using hosted model" : "Not supported here");
-    showUnsupportedHint();
+  // Tier 1: Chrome Prompt API (Gemini Nano) — desktop Chrome only.
+  if(hasPromptAPI()){
+    try{
+      const a = await LanguageModel.availability();
+      if(a === "available"){ setStatus("ready","On-device · ready"); el.hint.textContent=""; return; }
+      if(a === "downloadable"){ setStatus("ready","On-device · ready to download"); el.hint.textContent="First run downloads Gemini Nano (~2.7–4GB) once, then works offline."; return; }
+      if(a === "downloading"){ setStatus("downloading","On-device · downloading…"); return; }
+    }catch(e){ /* fall through */ }
+  }
+  // Tier 2: WebGPU small model — iPhone iOS 26+, and other WebGPU browsers.
+  if(webgpuSupported()){
+    setStatus("ready","On-device · WebGPU");
+    el.hint.textContent = "First run downloads a small model once (a few hundred MB), then works offline. On iPhone this needs iOS 26+.";
     return;
   }
-  try{
-    const a = await LanguageModel.availability();
-    if(a === "available"){
-      setStatus("ready", "On-device · ready");
-      el.hint.textContent = "";
-    }else if(a === "downloadable"){
-      setStatus("ready", "On-device · ready to download");
-      el.hint.textContent = "First run downloads Gemini Nano (~2.7–4GB) once, then works offline.";
-    }else if(a === "downloading"){
-      setStatus("downloading", "On-device · downloading…");
-    }else{
-      setStatus("unavailable", HOSTED_ENDPOINT ? "Using hosted model" : "Not available");
-      showUnsupportedHint();
-    }
-  }catch(err){
-    setStatus("unavailable", HOSTED_ENDPOINT ? "Using hosted model" : "Not available");
-    showUnsupportedHint();
-  }
+  // Tier 3: hosted, or nothing.
+  if(HOSTED_ENDPOINT){ setStatus("ready","Hosted model"); el.hint.textContent="This device has no on-device model, so requests use your hosted model."; return; }
+  setStatus("unavailable","Not available");
+  el.hint.innerHTML = "No on-device model here. On iPhone, update to iOS 26+ for WebGPU, or set a hosted fallback in the code.";
 }
 
-function showUnsupportedHint(){
-  if(HOSTED_ENDPOINT){
-    el.hint.textContent = "The on-device model isn't available on this browser, so requests use your hosted model instead.";
-    return;
-  }
-  el.hint.innerHTML = "On-device AI needs desktop Chrome 148+ (Windows/macOS/Linux). Enable <code>chrome://flags/#prompt-api-for-gemini-nano</code> on older builds, or set a hosted fallback in the code.";
-}
-
-/* =========================================================================
-   4. RUN A TASK  (streaming, on-device first, hosted fallback)
-   ========================================================================= */
+/* ========================================================================
+   4. RUN A TASK — cascade through whatever tiers this device supports
+   ======================================================================== */
 
 async function run(task){
   const text = el.input.value.trim();
   if(!text){ el.input.focus(); return; }
+  const system = task === "translate" ? SYSTEM_PROMPTS.translate(el.lang.value) : SYSTEM_PROMPTS[task];
 
-  const system = task === "translate"
-    ? SYSTEM_PROMPTS.translate(el.lang.value)
-    : SYSTEM_PROMPTS[task];
+  const tiers = [];
+  if(hasPromptAPI()) tiers.push("prompt");
+  if(webgpuSupported()) tiers.push("webgpu");
+  if(HOSTED_ENDPOINT) tiers.push("hosted");
+
+  if(tiers.length === 0){ writeError("No model available on this device. Open on desktop Chrome 148+, an iPhone on iOS 26+, or set HOSTED_ENDPOINT."); return; }
 
   beginRun();
-
-  try{
-    if(hasPromptAPI() && onDeviceState !== "unavailable"){
-      await runOnDevice(system, text);
-    }else if(HOSTED_ENDPOINT){
-      await runHosted(task, system, text);
-    }else{
-      throw new Error("no-backend");
+  let done = false, lastErr = null;
+  for(const tier of tiers){
+    try{
+      if(tier === "prompt")      await runPromptAPI(system, text);
+      else if(tier === "webgpu") await runWebGPU(system, text);
+      else                       await runHosted(task, system, text);
+      done = true; break;
+    }catch(err){
+      if(err && err.name === "AbortError"){ done = true; break; }   // user stopped
+      lastErr = err;                                                 // try next tier
+      console.warn("tier '" + tier + "' failed, trying next:", err);
     }
-  }catch(err){
-    if(err && err.name === "AbortError"){
-      // User pressed Stop — leave whatever streamed so far.
-    }else if(err && err.message === "no-backend"){
-      writeError("No model available. Open this on desktop Chrome 148+, or set HOSTED_ENDPOINT in the code.");
-    }else{
-      writeError("That request didn't complete. Try again, or shorten the text.");
-      console.error(err);
-    }
-  }finally{
-    endRun();
   }
+  if(!done) writeError("That request didn't complete on any available engine. Try again, or shorten the text.");
+  endRun();
 }
 
-async function runOnDevice(system, text){
+/* ---- Tier 1: Chrome Prompt API (Gemini Nano) ---- */
+async function runPromptAPI(system, text){
   currentController = new AbortController();
-
-  // create() triggers the model download on first use; monitor reports progress.
   const session = await LanguageModel.create({
     initialPrompts: [{ role: "system", content: system }],
     signal: currentController.signal,
-    monitor(m){
-      m.addEventListener("downloadprogress", (e) => {
-        const pct = Math.round((e.loaded || 0) * 100);
-        setStatus("downloading", `On-device · downloading ${pct}%`);
-      });
-    }
+    monitor(m){ m.addEventListener("downloadprogress", e => setStatus("downloading","On-device · downloading " + Math.round((e.loaded||0)*100) + "%")); }
   });
-
-  setStatus("ready", "On-device · ready");
+  setStatus("ready","On-device · ready");
   startOutput();
-
-  // Current Chrome streams *incremental* chunks (deltas). Append them.
   const stream = session.promptStreaming(text, { signal: currentController.signal });
-  for await (const chunk of stream){
-    appendOutput(chunk);
-  }
-
+  for await (const chunk of stream) appendOutput(chunk);   // Chrome streams deltas
   finishOutput();
-  session.destroy?.();
+  session.destroy && session.destroy();
 }
 
-// ---- Hosted fallback: wire to YOUR endpoint. This is a stub. ------------
-// Expected shape below assumes your proxy streams plain text chunks. Adapt
-// to your provider (Anthropic / OpenAI / your own) and keep the key server-side.
+/* ---- Tier 2: WebGPU small model via WebLLM (iPhone-capable) ---- */
+function pickModel(mod){
+  const ids = mod.prebuiltAppConfig.model_list.map(m => m.model_id);
+  for(const p of MODEL_PREFS) if(ids.includes(p)) return p;
+  return ids.find(id => /Instruct|-it-/i.test(id)) || ids[0];
+}
+async function ensureWebLLM(){
+  if(!webllmModule) webllmModule = await import(WEBLLM_CDN);
+  if(!webllmEngine){
+    const model = pickModel(webllmModule);
+    webllmEngine = await webllmModule.CreateMLCEngine(model, {
+      initProgressCallback: r => setStatus("downloading","On-device · " + Math.round((r.progress||0)*100) + "%")
+    });
+  }
+  return webllmEngine;
+}
+async function runWebGPU(system, text){
+  currentController = new AbortController();
+  const engine = await ensureWebLLM();
+  setStatus("ready","On-device · WebGPU");
+  startOutput();
+  const stream = await engine.chat.completions.create({
+    stream: true,
+    messages: [{ role:"system", content:system }, { role:"user", content:text }]
+  });
+  for await (const chunk of stream){
+    if(currentController.signal.aborted){ engine.interruptGenerate && engine.interruptGenerate(); throw new DOMException("stopped","AbortError"); }
+    const delta = chunk.choices && chunk.choices[0] && chunk.choices[0].delta ? chunk.choices[0].delta.content : "";
+    if(delta) appendOutput(delta);
+  }
+  finishOutput();
+}
+
+/* ---- Tier 3: hosted fallback (wire callHostedModel to your proxy) ---- */
 async function runHosted(task, system, text){
   currentController = new AbortController();
   const body = await callHostedModel({ task, system, text, signal: currentController.signal });
   startOutput();
-
   if(body && typeof body.getReader === "function"){
-    const reader = body.getReader();
-    const dec = new TextDecoder();
-    for(;;){
-      const { value, done } = await reader.read();
-      if(done) break;
-      appendOutput(dec.decode(value, { stream:true }));
-    }
-  }else if(typeof body === "string"){
-    appendOutput(body);
-  }
+    const reader = body.getReader(), dec = new TextDecoder();
+    for(;;){ const { value, done } = await reader.read(); if(done) break; appendOutput(dec.decode(value,{stream:true})); }
+  }else if(typeof body === "string"){ appendOutput(body); }
   finishOutput();
 }
-
-// Replace the throw with your fetch(). Return either a ReadableStream (to
-// stream) or a string (for a one-shot response).
 async function callHostedModel({ task, system, text, signal }){
   throw new Error("no-backend");
   /*  Example:
   const res = await fetch(HOSTED_ENDPOINT, {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({ task, system, text }),
-    signal
+    method:"POST", headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({ task, system, text }), signal
   });
-  if(!res.ok) throw new Error("hosted "+res.status);
-  return res.body;            // ReadableStream of UTF-8 text
+  if(!res.ok) throw new Error("hosted " + res.status);
+  return res.body;           // ReadableStream of UTF-8 text (or return a string)
   */
 }
 
-/* =========================================================================
+/* ========================================================================
    5. OUTPUT + UI PLUMBING
-   ========================================================================= */
+   ======================================================================== */
 
 let outText = "";
+function startOutput(){ outText=""; el.output.classList.remove("empty"); el.output.innerHTML='<span class="caret"></span>'; }
+function appendOutput(chunk){ outText += chunk; el.output.innerHTML = escapeHtml(outText) + '<span class="caret"></span>'; el.output.scrollTop = el.output.scrollHeight; }
+function finishOutput(){ el.output.textContent = outText; el.copy.hidden = el.clear.hidden = outText.length === 0; }
+function writeError(msg){ el.output.classList.remove("empty"); el.output.textContent = msg; }
+function escapeHtml(s){ return s.replace(/[&<>]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c])); }
 
-function startOutput(){
-  outText = "";
-  el.output.classList.remove("empty");
-  el.output.innerHTML = '<span class="caret"></span>';
-}
-function appendOutput(chunk){
-  outText += chunk;
-  el.output.innerHTML = escapeHtml(outText) + '<span class="caret"></span>';
-}
-function finishOutput(){
-  el.output.textContent = outText;
-  el.copy.hidden = el.clear.hidden = outText.length === 0;
-}
-function writeError(msg){
-  el.output.classList.remove("empty");
-  el.output.textContent = msg;
-}
-function escapeHtml(s){
-  return s.replace(/[&<>]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;" }[c]));
-}
+function beginRun(){ taskButtons.forEach(b => b.disabled = true); el.stop.hidden = false; }
+function endRun(){ taskButtons.forEach(b => b.disabled = false); el.stop.hidden = true; currentController = null; }
 
-function beginRun(){
-  taskButtons.forEach(b => b.disabled = true);
-  el.stop.hidden = false;
-}
-function endRun(){
-  taskButtons.forEach(b => b.disabled = false);
-  el.stop.hidden = true;
-  currentController = null;
-}
-
-/* ---- Events ---- */
 taskButtons.forEach(b => b.addEventListener("click", () => run(b.dataset.task)));
-el.stop.addEventListener("click", () => currentController?.abort());
-el.copy.addEventListener("click", async () => {
-  try{ await navigator.clipboard.writeText(outText); el.copy.textContent = "Copied"; setTimeout(()=>el.copy.textContent="Copy",1200);}catch{}
+el.stop.addEventListener("click", () => {
+  currentController && currentController.abort();
+  webllmEngine && webllmEngine.interruptGenerate && webllmEngine.interruptGenerate();
 });
-el.clear.addEventListener("click", () => {
-  outText = "";
-  el.output.className = "output empty";
-  el.output.textContent = "Your result will appear here — and never leaves this device.";
-  el.copy.hidden = el.clear.hidden = true;
-});
+el.copy.addEventListener("click", async () => { try{ await navigator.clipboard.writeText(outText); el.copy.textContent="Copied"; setTimeout(()=>el.copy.textContent="Copy",1200);}catch(e){} });
+el.clear.addEventListener("click", () => { outText=""; el.output.className="output empty"; el.output.textContent="Your result will appear here — and never leaves this device."; el.copy.hidden=el.clear.hidden=true; });
 
-// Drag & drop a .txt file into the textarea.
 el.input.addEventListener("dragover", e => { e.preventDefault(); el.input.classList.add("drop"); });
 el.input.addEventListener("dragleave", () => el.input.classList.remove("drop"));
 el.input.addEventListener("drop", async e => {
   e.preventDefault(); el.input.classList.remove("drop");
-  const file = e.dataTransfer?.files?.[0];
+  const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
   if(file && file.type.startsWith("text")) el.input.value = await file.text();
 });
 
-/* =========================================================================
-   6. PWA SERVICE WORKER  (optional sibling; app runs fine without it)
-   ========================================================================= */
 if("serviceWorker" in navigator){
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").catch(() => {
-      // No sw.js deployed → no offline caching. Not an error for the app.
-    });
-  });
+  window.addEventListener("load", () => { navigator.serviceWorker.register("./sw.js").catch(()=>{}); });
 }
 
-/* ---- Go ---- */
 checkAvailability();
 </script>
 </body>
