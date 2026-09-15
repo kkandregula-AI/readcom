@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Local Reading Companion</title>
-<meta name="description" content="Summarize, explain, and translate text, docs, PDFs, and images. Text and images stay on-device; documents use your own Claude key." />
+<meta name="description" content="On-device + your-key Claude reading companion with token optimization and PDF export." />
 <meta name="theme-color" content="#16624B" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -14,18 +14,17 @@
 
 <!--
   ============================================================================
-  LOCAL READING COMPANION  —  on-device + bring-your-own-key Claude
+  LOCAL READING COMPANION  —  on-device + BYOK Claude
   Designed & Architected by Krishnamurthy Kandregula · Made by Claude
   ============================================================================
-  KEY PROVISION (dynamic, per user):
-    Users paste their own Claude API key in Settings. It is stored ONLY in this
-    browser (localStorage) and sent directly from the browser to Anthropic using
-    the anthropic-dangerous-direct-browser-access header. It never touches any
-    server of yours. No key is hardcoded anywhere in this file.
-  ROUTING:
-    Word / PDF / image -> text extracted on-device, then sent to Claude.
-    Pasted / typed text -> on-device model first, Claude as fallback.
-  CLOUD PRECEDENCE: user's key (direct) -> HOSTED_ENDPOINT proxy (optional) -> none.
+  TOKEN OPTIMIZATION (see section 3):
+    1. Pre-send cleanup: normalize whitespace, drop page-number lines and
+       repeated running headers/footers -> fewer input tokens, no quality loss.
+    2. Prompt caching: the document goes in a cache_control block, the task
+       instruction after it. Re-running tasks on the SAME document reuses the
+       cached document tokens (cache read), so only the instruction + output
+       are billed at full rate. Needs >=1024 tokens to cache.
+    3. Right-sized max_tokens per task, and a live token/cache read-out.
   ============================================================================
 -->
 
@@ -64,8 +63,7 @@
   .filerow{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
   .filebtn{display:inline-block;cursor:pointer;border:1px solid var(--line);border-radius:var(--radius);padding:8px 14px;font-size:.86rem;background:var(--surface);color:var(--ink)}
   .filebtn:hover{border-color:var(--ink)}
-  .filestat{font-size:.82rem;color:var(--muted)}
-  .filestat.cloud{color:var(--sky)}
+  .filestat{font-size:.82rem;color:var(--muted)} .filestat.cloud{color:var(--sky)}
   .actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:16px}
   button{font:inherit;cursor:pointer;border-radius:var(--radius);padding:10px 16px;border:1px solid var(--ink);background:var(--ink);color:var(--paper);font-weight:500;transition:transform .04s ease}
   button:active{transform:translateY(1px)}
@@ -75,17 +73,17 @@
   .translate-group button{border:none;border-radius:0}
   .translate-group select{border:none;border-left:1px solid rgba(239,241,241,.35);background:var(--ink);color:var(--paper);font:inherit;padding:0 10px;cursor:pointer}
   .spacer{flex:1 1 auto}
-  .settings{margin-top:22px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);overflow:hidden}
-  .settings>summary{cursor:pointer;padding:12px 15px;font-size:.9rem;font-weight:500;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px}
-  .settings>summary::-webkit-details-marker{display:none}
-  .settings>summary .kstate{color:var(--muted);font-weight:400;font-size:.8rem}
-  .settings>summary .kstate.on{color:var(--pine)}
-  .settings-body{padding:0 15px 15px;display:flex;flex-direction:column;gap:10px}
-  .settings-body input{padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.88rem}
-  .settings-actions{display:flex;gap:8px}
-  .settings-actions button{padding:8px 14px;font-size:.86rem}
-  .settings-note{margin:2px 0 0;font-size:.78rem;color:var(--muted);line-height:1.55}
-  .settings-note a{color:var(--sky)}
+  details.panel{margin-top:14px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);overflow:hidden}
+  details.panel>summary{cursor:pointer;padding:12px 15px;font-size:.9rem;font-weight:500;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px}
+  details.panel>summary::-webkit-details-marker{display:none}
+  details.panel>summary .kstate{color:var(--muted);font-weight:400;font-size:.8rem} details.panel>summary .kstate.on{color:var(--pine)}
+  .panel-body{padding:0 15px 15px;display:flex;flex-direction:column;gap:10px}
+  .panel-body label{display:flex;flex-direction:column;gap:4px;font-size:.8rem;color:var(--muted)}
+  .panel-body input{padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);font:inherit;font-size:.95rem}
+  #apiKey{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.88rem}
+  .panel-actions{display:flex;gap:8px} .panel-actions button{padding:8px 14px;font-size:.86rem}
+  .panel-note{margin:2px 0 0;font-size:.78rem;color:var(--muted);line-height:1.55} .panel-note a{color:var(--sky)}
+  .toggle{display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--ink)}
   .out-head{display:flex;align-items:center;justify-content:space-between;margin-top:30px;margin-bottom:8px}
   .out-head .field-label{margin:0}
   .out-tools{display:flex;gap:8px}
@@ -96,6 +94,8 @@
   .output .caret{display:inline-block;width:2px;height:1.05em;background:var(--pine);margin-left:1px;vertical-align:text-bottom;animation:blink 1s steps(1) infinite}
   @keyframes blink{50%{opacity:0}}
   @media (prefers-reduced-motion:reduce){.output .caret{animation:none}}
+  .usage{margin-top:10px;font-size:.76rem;color:var(--muted);font-family:"IBM Plex Mono",ui-monospace,monospace;line-height:1.5}
+  .usage b{color:var(--pine);font-weight:500}
   .note{margin-top:12px;font-size:.82rem;color:var(--muted)}
   .note code{font-family:"IBM Plex Mono",ui-monospace,monospace;background:#E4E8E5;padding:1px 5px;border-radius:4px}
   footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);font-size:.8rem;color:var(--muted)}
@@ -138,23 +138,37 @@
     <button id="btnStop" class="ghost" hidden>Stop</button>
   </div>
 
-  <details class="settings" id="settings">
+  <details class="panel" id="settings">
     <summary>Claude API key <span class="kstate" id="keyState">(not set)</span></summary>
-    <div class="settings-body">
+    <div class="panel-body">
       <input type="password" id="apiKey" placeholder="sk-ant-…" autocomplete="off" autocapitalize="off" spellcheck="false" />
-      <div class="settings-actions">
-        <button id="saveKey">Save key</button>
-        <button id="clearKey" class="ghost">Clear</button>
-      </div>
-      <p class="settings-note">Used for Word and PDF files (and as a fallback for text). Sent straight from your browser to Anthropic and stored only on this device — never uploaded anywhere else. Get a key at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.</p>
+      <div class="panel-actions"><button id="saveKey">Save key</button><button id="clearKey" class="ghost">Clear</button></div>
+      <label class="toggle"><input type="checkbox" id="optToggle" checked /> Token optimization (clean text + cache documents)</label>
+      <p class="panel-note">Key is stored only on this device and sent straight to Anthropic — never uploaded elsewhere, and it stays saved between sessions. Get one at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.</p>
     </div>
   </details>
 
   <div class="out-head">
     <div class="field-label">Result</div>
-    <div class="out-tools"><button id="btnCopy" hidden>Copy</button><button id="btnClear" hidden>Clear</button></div>
+    <div class="out-tools">
+      <button id="btnPdf" hidden>Export PDF</button>
+      <button id="btnCopy" hidden>Copy</button>
+      <button id="btnClear" hidden>Clear</button>
+    </div>
   </div>
   <div class="output empty" id="output" aria-live="polite">Your result will appear here.</div>
+  <div class="usage" id="usage" hidden></div>
+
+  <details class="panel" id="export">
+    <summary>Export as PDF</summary>
+    <div class="panel-body">
+      <label>Document title<input type="text" id="exTitle" value="Lease Agreement — Summary" /></label>
+      <label>Parties<input type="text" id="exParties" placeholder="Lessor: …    Lessee: …" /></label>
+      <label>Date<input type="text" id="exDate" /></label>
+      <div class="panel-actions"><button id="exBtn">Download PDF</button></div>
+      <p class="panel-note">Builds a formatted PDF of the result above with this title, parties, and date.</p>
+    </div>
+  </details>
 
   <div class="note" id="hint"></div>
   <footer>Designed &amp; Architected by <b>Krishnamurthy Kandregula</b> · Made by Claude</footer>
@@ -163,80 +177,108 @@
 <script>
 "use strict";
 
-/* ========================================================================
-   1. CONFIG
-   ======================================================================== */
-const ANTHROPIC_MODEL = "claude-sonnet-5";   // direct browser calls with the user's key
-// Optional server proxy. Leave "" for pure bring-your-own-key (works on GitHub
-// Pages, no server). Set to your proxy URL to use a server-held key when the
-// user hasn't entered one of their own.
+/* ===== 1. CONFIG ===== */
+const ANTHROPIC_MODEL = "claude-sonnet-5";
 const HOSTED_ENDPOINT = "";
-
 const KEY_STORE = "lrc_anthropic_key";
 const WEBLLM_CDN = "https://esm.run/@mlc-ai/web-llm";
+const JSPDF_CDN = "https://cdn.jsdelivr.net/npm/jspdf@2/dist/jspdf.umd.min.js";
+const CACHE_MIN_TOKENS = 1024;   // Anthropic minimum before a block can be cached
 const MODEL_PREFS_MOBILE  = ["Qwen2.5-0.5B-Instruct-q4f16_1-MLC","SmolLM2-360M-Instruct-q4f16_1-MLC","TinyLlama-1.1B-Chat-v1.0-q4f16_1-MLC","Llama-3.2-1B-Instruct-q4f16_1-MLC"];
 const MODEL_PREFS_DESKTOP = ["Llama-3.2-1B-Instruct-q4f16_1-MLC","Qwen2.5-1.5B-Instruct-q4f16_1-MLC","Qwen2.5-0.5B-Instruct-q4f16_1-MLC","SmolLM2-1.7B-Instruct-q4f16_1-MLC"];
 const IS_MOBILE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || navigator.maxTouchPoints > 1;
-
-const SYSTEM_PROMPTS = {
+const SYSTEM_PROMPTS = {   // used by the on-device engines
   summarize:"You are a concise summarizer. Return the key points of the text as a short, faithful summary. No preamble, no opinions.",
   explain:"You explain text in plain language for a general reader. Keep the meaning exact; simplify only the wording.",
   translate:(lang)=>"You are a translator. Translate the user's text into "+lang+". Output only the translation, nothing else."
 };
-
-/* ========================================================================
-   2. STATE + ELEMENTS
-   ======================================================================== */
-const el = {
-  status:document.getElementById("status"), statusText:document.getElementById("statusText"),
-  input:document.getElementById("input"), output:document.getElementById("output"),
-  hint:document.getElementById("hint"), stop:document.getElementById("btnStop"),
-  copy:document.getElementById("btnCopy"), clear:document.getElementById("btnClear"),
-  lang:document.getElementById("lang"), file:document.getElementById("file"), fileStat:document.getElementById("fileStat"),
-  settings:document.getElementById("settings"), apiKey:document.getElementById("apiKey"),
-  saveKey:document.getElementById("saveKey"), clearKey:document.getElementById("clearKey"), keyState:document.getElementById("keyState"),
-};
-const taskButtons = [...document.querySelectorAll("[data-task]")];
-let currentController=null, webllmModule=null, webllmEngine=null, webgpuReady=false, docDerived=false;
-
-/* ========================================================================
-   3. KEY PROVISION (dynamic, stored on this device only)
-   ======================================================================== */
-function getKey(){ try{ return localStorage.getItem(KEY_STORE) || ""; }catch(e){ return ""; } }
-function saveKey(k){ try{ if(k) localStorage.setItem(KEY_STORE,k); else localStorage.removeItem(KEY_STORE); }catch(e){} refreshKeyState(); }
-function cloudReady(){ return !!(getKey() || HOSTED_ENDPOINT); }
-function refreshKeyState(){
-  const has=!!getKey();
-  el.keyState.textContent = has ? "(saved on this device)" : "(not set)";
-  el.keyState.classList.toggle("on",has);
-  baseHint();
+const CLOUD_SYSTEM = "You are a precise reading assistant. Follow the instruction exactly, using only the provided document.";
+function cloudInstruction(task,lang){
+  if(task==="summarize") return "Summarize the document above as a short, faithful set of key points. No preamble, no opinions.";
+  if(task==="explain") return "Explain the document above in plain language for a general reader. Keep the meaning exact; simplify only the wording.";
+  return "Translate the document above into "+lang+". Output only the translation, nothing else.";
 }
 
-/* ========================================================================
-   4. CAPABILITY DETECTION
-   ======================================================================== */
+/* ===== 2. STATE + ELEMENTS ===== */
+const el = {
+  status:document.getElementById("status"), statusText:document.getElementById("statusText"),
+  input:document.getElementById("input"), output:document.getElementById("output"), usage:document.getElementById("usage"), hint:document.getElementById("hint"),
+  stop:document.getElementById("btnStop"), copy:document.getElementById("btnCopy"), clear:document.getElementById("btnClear"), pdf:document.getElementById("btnPdf"),
+  lang:document.getElementById("lang"), file:document.getElementById("file"), fileStat:document.getElementById("fileStat"),
+  settings:document.getElementById("settings"), apiKey:document.getElementById("apiKey"), saveKey:document.getElementById("saveKey"),
+  clearKey:document.getElementById("clearKey"), keyState:document.getElementById("keyState"), optToggle:document.getElementById("optToggle"),
+  export:document.getElementById("export"), exTitle:document.getElementById("exTitle"), exParties:document.getElementById("exParties"), exDate:document.getElementById("exDate"), exBtn:document.getElementById("exBtn"),
+};
+const taskButtons = [...document.querySelectorAll("[data-task]")];
+let currentController=null, webllmModule=null, webllmEngine=null, webgpuReady=false, docDerived=false, lastTaskLabel="Summary";
+
+/* ===== 3. TOKEN OPTIMIZATION ===== */
+const fmt = n => n.toLocaleString();
+const estTokens = s => Math.ceil((s||"").length / 4);   // ~4 chars/token heuristic
+
+// Clean text before sending: strip whitespace waste, page numbers, and
+// repeated running headers/footers. Conservative — no sentence content removed.
+function optimizeText(raw){
+  const before = raw.length;
+  let lines = raw.replace(/\r\n?/g,"\n").split("\n").map(l => l.replace(/[ \t]+$/,"").replace(/[ \t]{2,}/g," "));
+  lines = lines.filter(l => { const s=l.trim(); if(!s) return true;
+    if(/^page\s+\d+(\s+of\s+\d+)?$/i.test(s)) return false;   // "Page 3 of 12"
+    if(/^\d{1,4}$/.test(s)) return false;                     // lone page numbers
+    if(/^[-–—]\s*\d+\s*[-–—]$/.test(s)) return false;         // "- 4 -"
+    return true; });
+  const counts={}; for(const l of lines){ const s=l.trim(); if(s) counts[s]=(counts[s]||0)+1; }
+  const boiler = new Set(Object.keys(counts).filter(s => counts[s] >= 4 && s.length <= 70 && !/[.!?:]$/.test(s)));
+  if(boiler.size) lines = lines.filter(l => !boiler.has(l.trim()));
+  const text = lines.join("\n").replace(/\n{3,}/g,"\n\n").trim();
+  return { text, before, after:text.length };
+}
+function maxTokensFor(task,estIn){
+  if(task==="translate") return Math.min(4096, Math.max(600, Math.round(estIn*1.4))); // output ~ input length
+  return 1200; // summaries / explanations are short
+}
+function setUsage(html){ el.usage.innerHTML=html; el.usage.hidden=false; }
+function appendUsage(html){ el.usage.innerHTML += html; el.usage.hidden=false; }
+// USD per 1M tokens — claude-sonnet-5. Update if you change ANTHROPIC_MODEL.
+const PRICING = { input:2.00, output:10.00, cacheRead:0.20, cacheWrite:2.50 };
+const USD_INR = 90;   // approximate FX rate — edit to today's rate for exact rupees
+function costUSD(u){ return (u.input*PRICING.input + u.cacheRead*PRICING.cacheRead + u.cacheWrite*PRICING.cacheWrite + u.output*PRICING.output)/1e6; }
+function money(usd){ const inr=usd*USD_INR; return "₹"+inr.toFixed(inr<1?3:2); }
+function moneyFull(usd){ return money(usd)+" (~$"+usd.toFixed(4)+")"; }
+function showClaudeUsage(u){
+  const cached = u.cacheRead>0;
+  const parts = ["<b>Claude</b> in "+fmt(u.input)+" new"];
+  if(u.cacheRead)  parts.push(fmt(u.cacheRead)+" cached read");
+  if(u.cacheWrite) parts.push(fmt(u.cacheWrite)+" cached write");
+  parts.push("out "+fmt(u.output));
+  let line = " &nbsp;·&nbsp; " + parts.join(", ") + (cached ? " &nbsp;<b>♻ reused document cache</b>" : "");
+  line += "<br><b>Cost</b> ≈ " + moneyFull(costUSD(u));
+  const savedUsd = u.cacheRead*(PRICING.input-PRICING.cacheRead)/1e6;   // vs paying full input for cached tokens
+  if(savedUsd>0) line += " &nbsp;·&nbsp; <b>cache saved "+money(savedUsd)+"</b>";
+  appendUsage(line);
+}
+
+/* ===== 4. KEY (persistent) ===== */
+function getKey(){ try{ return localStorage.getItem(KEY_STORE) || ""; }catch(e){ return ""; } }
+function saveKey(k){ try{ if(k){ localStorage.setItem(KEY_STORE,k); requestPersistence(); } else localStorage.removeItem(KEY_STORE); }catch(e){} refreshKeyState(); }
+function cloudReady(){ return !!(getKey() || HOSTED_ENDPOINT); }
+async function requestPersistence(){ try{ if(navigator.storage&&navigator.storage.persist&&!(await navigator.storage.persisted())) await navigator.storage.persist(); }catch(e){} }
+function refreshKeyState(){ const has=!!getKey(); el.keyState.textContent=has?"(saved on this device)":"(not set)"; el.keyState.classList.toggle("on",has); baseHint(); }
+
+/* ===== 5. CAPABILITY DETECTION ===== */
 function hasPromptAPI(){ return "LanguageModel" in self; }
 async function probeWebGPU(){ if(!("gpu" in navigator)) return false; try{ const a=await navigator.gpu.requestAdapter(); webgpuReady=!!a; return webgpuReady; }catch(e){ webgpuReady=false; return false; } }
 function setStatus(state,text){ el.status.dataset.state=state; el.statusText.textContent=text; }
 function baseHint(){ el.hint.textContent = cloudReady() ? "Text stays on-device. Word and PDF go to Claude with your key." : "Add your Claude API key in Settings to handle Word and PDF files."; }
-
 async function checkAvailability(){
-  if(hasPromptAPI()){
-    try{
-      const a=await LanguageModel.availability();
-      if(a==="available"||a==="downloadable"){ setStatus("ready","On-device · ready"); return baseHint(); }
-      if(a==="downloading"){ setStatus("downloading","On-device · downloading…"); return; }
-    }catch(e){}
-  }
+  if(hasPromptAPI()){ try{ const a=await LanguageModel.availability();
+    if(a==="available"||a==="downloadable"){ setStatus("ready","On-device · ready"); return baseHint(); }
+    if(a==="downloading"){ setStatus("downloading","On-device · downloading…"); return; } }catch(e){} }
   if(await probeWebGPU()){ setStatus("ready","On-device · WebGPU"); return baseHint(); }
   if(cloudReady()){ setStatus("ready","Claude"); el.hint.textContent="No on-device model here, so everything uses Claude with your key."; return; }
-  setStatus("unavailable","Not available");
-  el.hint.innerHTML="No on-device model. Add your Claude API key in Settings to use the app here.";
+  setStatus("unavailable","Not available"); el.hint.innerHTML="No on-device model. Add your Claude API key in Settings to use the app here.";
 }
 
-/* ========================================================================
-   5. FILE INPUT — extract on-device; docs then route to Claude
-   ======================================================================== */
+/* ===== 6. FILE INPUT ===== */
 function setFileStat(t,cloud){ el.fileStat.textContent=t; el.fileStat.classList.toggle("cloud",!!cloud); }
 function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement("script"); s.src=src; s.onload=res; s.onerror=()=>rej(new Error("Failed to load "+src)); document.head.appendChild(s); }); }
 async function extractDocx(file){ if(!window.mammoth) await loadScript("https://cdn.jsdelivr.net/npm/mammoth@1/mammoth.browser.min.js"); const r=await window.mammoth.extractRawText({arrayBuffer:await file.arrayBuffer()}); return (r.value||"").trim(); }
@@ -254,8 +296,7 @@ async function extractImage(file){
   const text=(data.text||"").trim(); if(!text) throw new Error("No text found in the image."); return text;
 }
 async function onFile(file){
-  if(!file) return;
-  const name=(file.name||"").toLowerCase(), type=file.type||"";
+  if(!file) return; const name=(file.name||"").toLowerCase(), type=file.type||"";
   setFileStat("Reading "+file.name+"…");
   try{
     let text, cloud=false;
@@ -265,38 +306,44 @@ async function onFile(file){
     else if(type.startsWith("image/")){ text=await extractImage(file); docDerived=true; cloud=true; }
     else throw new Error("Unsupported file. Use .txt, .md, .docx, .pdf, or an image.");
     el.input.value=text;
-    const chars=text.length.toLocaleString();
-    if(cloud && !cloudReady()){ setFileStat(file.name+" · "+chars+" chars · add your Claude key below to process", true); el.settings.open=true; }
-    else setFileStat(file.name+" · "+chars+" chars"+(cloud?" · will use Claude":" · stays on-device"), cloud);
+    const est = estTokens(el.optToggle.checked ? optimizeText(text).text : text);
+    const meta = text.length.toLocaleString()+" chars · ~"+fmt(est)+" tokens";
+    if(cloud && !cloudReady()){ setFileStat(file.name+" · "+meta+" · add your Claude key below", true); el.settings.open=true; }
+    else setFileStat(file.name+" · "+meta+(cloud?" · will use Claude":" · on-device"), cloud);
   }catch(err){ setFileStat("Couldn't read that file: "+(err.message||err)); docDerived=false; }
 }
 
-/* ========================================================================
-   6. RUN A TASK — route by source, cascade on failure
-   ======================================================================== */
+/* ===== 7. RUN ===== */
 async function run(task){
-  const text=el.input.value.trim(); if(!text){ el.input.focus(); return; }
-  const system = task==="translate" ? SYSTEM_PROMPTS.translate(el.lang.value) : SYSTEM_PROMPTS[task];
+  let text=el.input.value.trim(); if(!text){ el.input.focus(); return; }
+  const lang=el.lang.value;
+  lastTaskLabel = task==="summarize" ? "Summary" : task==="explain" ? "Explanation" : ("Translation ("+lang+")");
+
+  // --- token optimization: clean the input, report the saving ---
+  const estBefore = estTokens(text);
+  if(el.optToggle.checked){ const opt=optimizeText(text); text=opt.text; }
+  const estAfter = estTokens(text);
+  const saved = estBefore>0 ? Math.round((1 - estAfter/estBefore)*100) : 0;
+  setUsage(saved>0 ? ("<b>Optimized</b> ~"+fmt(estBefore)+" → ~"+fmt(estAfter)+" tokens (−"+saved+"%)") : ("~"+fmt(estAfter)+" input tokens"));
 
   const onDevice=[]; if(hasPromptAPI()) onDevice.push("prompt"); if(webgpuReady||("gpu" in navigator)) onDevice.push("webgpu");
   const cloud = cloudReady() ? ["cloud"] : [];
   const tiers = docDerived ? [...cloud, ...onDevice] : [...onDevice, ...cloud];
   if(tiers.length===0){ writeError("No engine available. Add your Claude API key in Settings, or open on a device with an on-device model."); el.settings.open=true; return; }
 
-  beginRun();
-  let done=false, lastErr=null;
+  beginRun(); let done=false, lastErr=null, usedTier=null;
   for(const tier of tiers){
     try{
-      if(tier==="prompt") await runPromptAPI(system,text);
-      else if(tier==="webgpu") await runWebGPU(system,text);
-      else await runCloud(task,system,text);
-      done=true; break;
+      if(tier==="prompt") await runPromptAPI(SYSTEM_PROMPTS[task]||SYSTEM_PROMPTS.translate(lang), text);
+      else if(tier==="webgpu") await runWebGPU(SYSTEM_PROMPTS[task]||SYSTEM_PROMPTS.translate(lang), text);
+      else await runCloud(task, lang, text);
+      usedTier=tier; done=true; break;
     }catch(err){ if(err&&err.name==="AbortError"){ done=true; break; } lastErr=err; console.warn("tier '"+tier+"' failed:",err); }
   }
   if(!done){ const m=lastErr?(lastErr.message||String(lastErr)):"unknown error"; writeError("Couldn't complete on this device.\n\nReason: "+m); }
+  else if(usedTier && usedTier!=="cloud"){ appendUsage(" &nbsp;·&nbsp; on-device — <b>no API cost</b>"); }
   endRun();
 }
-
 async function runPromptAPI(system,text){
   currentController=new AbortController();
   const session=await LanguageModel.create({ initialPrompts:[{role:"system",content:system}], signal:currentController.signal, monitor(m){ m.addEventListener("downloadprogress",e=>setStatus("downloading","On-device · downloading "+Math.round((e.loaded||0)*100)+"%")); } });
@@ -306,11 +353,7 @@ async function runPromptAPI(system,text){
   finishOutput(); session.destroy&&session.destroy();
 }
 function pickModel(mod){ const cfg=mod&&mod.prebuiltAppConfig; if(!cfg||!Array.isArray(cfg.model_list)) throw new Error("WebLLM model list unavailable"); const ids=cfg.model_list.map(m=>m.model_id); const prefs=IS_MOBILE?MODEL_PREFS_MOBILE:MODEL_PREFS_DESKTOP; for(const p of prefs) if(ids.includes(p)) return p; return ids.find(id=>/Instruct|-it-|Chat/i.test(id))||ids[0]; }
-async function ensureWebLLM(){
-  if(!webllmModule) webllmModule=await import(WEBLLM_CDN);
-  if(!webllmEngine){ const model=pickModel(webllmModule); setStatus("downloading","On-device · loading model…"); webllmEngine=await webllmModule.CreateMLCEngine(model,{ initProgressCallback:r=>setStatus("downloading","On-device · "+Math.round((r.progress||0)*100)+"%") }); }
-  return webllmEngine;
-}
+async function ensureWebLLM(){ if(!webllmModule) webllmModule=await import(WEBLLM_CDN); if(!webllmEngine){ const model=pickModel(webllmModule); setStatus("downloading","On-device · loading model…"); webllmEngine=await webllmModule.CreateMLCEngine(model,{ initProgressCallback:r=>setStatus("downloading","On-device · "+Math.round((r.progress||0)*100)+"%") }); } return webllmEngine; }
 async function runWebGPU(system,text){
   currentController=new AbortController(); const engine=await ensureWebLLM();
   setStatus("ready","On-device · WebGPU"); startOutput();
@@ -318,31 +361,34 @@ async function runWebGPU(system,text){
   for await (const chunk of stream){ if(currentController.signal.aborted){ engine.interruptGenerate&&engine.interruptGenerate(); throw new DOMException("stopped","AbortError"); } const d=chunk.choices&&chunk.choices[0]&&chunk.choices[0].delta?chunk.choices[0].delta.content:""; if(d) appendOutput(d); }
   finishOutput();
 }
+async function runCloud(task,lang,text){ if(getKey()) return runAnthropicDirect(task,lang,text); if(HOSTED_ENDPOINT) return runHosted(task,SYSTEM_PROMPTS[task]||SYSTEM_PROMPTS.translate(lang),text); throw new Error("No Claude key or endpoint set. Add your API key in Settings."); }
 
-/* ---- Cloud: user's key (direct) preferred, else proxy ---- */
-async function runCloud(task,system,text){
-  if(getKey()) return runAnthropicDirect(system,text);
-  if(HOSTED_ENDPOINT) return runHosted(task,system,text);
-  throw new Error("No Claude key or endpoint set. Add your API key in Settings.");
-}
-async function runAnthropicDirect(system,text){
+async function runAnthropicDirect(task,lang,text){
   currentController=new AbortController();
-  const res=await fetch("https://api.anthropic.com/v1/messages",{
-    method:"POST",
+  const estIn = estTokens(text);
+  // Optimization: cache the document block so repeat tasks on the same doc
+  // are billed as cache reads. Instruction goes AFTER, so the prefix is stable.
+  const docBlock = { type:"text", text };
+  if(estIn >= CACHE_MIN_TOKENS) docBlock.cache_control = { type:"ephemeral" };
+  const content = [ docBlock, { type:"text", text: cloudInstruction(task,lang) } ];
+
+  const res=await fetch("https://api.anthropic.com/v1/messages",{ method:"POST",
     headers:{ "content-type":"application/json","x-api-key":getKey(),"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true" },
-    body:JSON.stringify({ model:ANTHROPIC_MODEL, max_tokens:1500, stream:true, system, messages:[{role:"user",content:text}] }),
-    signal:currentController.signal
-  });
+    body:JSON.stringify({ model:ANTHROPIC_MODEL, max_tokens:maxTokensFor(task,estIn), stream:true, system:CLOUD_SYSTEM, messages:[{role:"user",content}] }),
+    signal:currentController.signal });
   if(!res.ok){ const t=await res.text().catch(()=> ""); throw new Error("Anthropic "+res.status+(t?": "+t.slice(0,180):"")); }
+
+  const usage={input:0,cacheRead:0,cacheWrite:0,output:0};
   startOutput();
   const reader=res.body.getReader(), dec=new TextDecoder(); let buf="";
-  for(;;){
-    const {value,done}=await reader.read(); if(done) break;
-    buf+=dec.decode(value,{stream:true}); const lines=buf.split("\n"); buf=lines.pop();
+  for(;;){ const {value,done}=await reader.read(); if(done) break; buf+=dec.decode(value,{stream:true}); const lines=buf.split("\n"); buf=lines.pop();
     for(const line of lines){ const l=line.trim(); if(!l.startsWith("data:")) continue; const data=l.slice(5).trim(); if(!data||data==="[DONE]") continue;
-      try{ const ev=JSON.parse(data); if(ev.type==="content_block_delta"&&ev.delta&&ev.delta.type==="text_delta") appendOutput(ev.delta.text); }catch(e){} }
-  }
-  finishOutput();
+      try{ const ev=JSON.parse(data);
+        if(ev.type==="message_start"&&ev.message&&ev.message.usage){ const u=ev.message.usage; usage.input=u.input_tokens||0; usage.cacheRead=u.cache_read_input_tokens||0; usage.cacheWrite=u.cache_creation_input_tokens||0; }
+        else if(ev.type==="message_delta"&&ev.usage&&ev.usage.output_tokens!=null){ usage.output=ev.usage.output_tokens; }
+        else if(ev.type==="content_block_delta"&&ev.delta&&ev.delta.type==="text_delta"){ appendOutput(ev.delta.text); }
+      }catch(e){} } }
+  finishOutput(); showClaudeUsage(usage);
 }
 async function runHosted(task,system,text){
   currentController=new AbortController();
@@ -354,33 +400,63 @@ async function runHosted(task,system,text){
   finishOutput();
 }
 
-/* ========================================================================
-   7. OUTPUT + UI
-   ======================================================================== */
+/* ===== 8. PDF EXPORT ===== */
+async function exportPdf(){
+  const bodyText=outText.trim(); if(!bodyText){ flash(el.exBtn,"Run a task first"); return; }
+  const orig=el.exBtn.textContent; el.exBtn.textContent="Building…"; el.exBtn.disabled=true;
+  try{
+    if(!window.jspdf) await loadScript(JSPDF_CDN);
+    const { jsPDF }=window.jspdf; const doc=new jsPDF({unit:"pt",format:"a4"});
+    const pageW=doc.internal.pageSize.getWidth(), pageH=doc.internal.pageSize.getHeight(), M=56, contentW=pageW-M*2; let y=M;
+    const title=(el.exTitle.value.trim()||"Summary"), parties=el.exParties.value.trim(), date=(el.exDate.value.trim()||new Date().toLocaleDateString());
+    doc.setFont("times","bold"); doc.setFontSize(19); doc.setTextColor(15);
+    const tl=doc.splitTextToSize(title,contentW); doc.text(tl,M,y); y+=tl.length*23+4;
+    doc.setDrawColor(150); doc.setLineWidth(0.8); doc.line(M,y,pageW-M,y); y+=18;
+    doc.setFont("times","normal"); doc.setFontSize(11); doc.setTextColor(70);
+    if(parties){ const pl=doc.splitTextToSize("Parties:  "+parties,contentW); doc.text(pl,M,y); y+=pl.length*15; }
+    doc.text("Date:  "+date,M,y); y+=15; doc.setFont("times","italic"); doc.text(lastTaskLabel,M,y); y+=20;
+    doc.setFont("times","normal"); doc.setFontSize(11.5); doc.setTextColor(20);
+    const lh=16, bottom=pageH-M-30;
+    for(const para of bodyText.split(/\n{2,}/)){ const lines=doc.splitTextToSize(para.replace(/\s*\n\s*/g," ").trim(),contentW);
+      for(const line of lines){ if(y>bottom){ doc.addPage(); y=M; } doc.text(line,M,y); y+=lh; } y+=lh*0.55; }
+    const total=doc.internal.getNumberOfPages();
+    for(let p=1;p<=total;p++){ doc.setPage(p); doc.setFont("times","italic"); doc.setFontSize(8.5); doc.setTextColor(120);
+      doc.text("Designed & Architected by Krishnamurthy Kandregula · Made by Claude",M,pageH-26);
+      doc.text("Page "+p+" of "+total,pageW-M,pageH-26,{align:"right"}); }
+    const safe=title.replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"_").slice(0,60)||"summary";
+    doc.save(safe+".pdf"); el.exBtn.textContent="Saved ✓";
+  }catch(err){ console.error(err); el.exBtn.textContent="Export failed"; }
+  finally{ el.exBtn.disabled=false; setTimeout(()=>{ el.exBtn.textContent=orig; },1600); }
+}
+function flash(btn,msg){ const o=btn.textContent; btn.textContent=msg; setTimeout(()=>btn.textContent=o,1400); }
+
+/* ===== 9. OUTPUT + UI ===== */
 let outText="";
 function startOutput(){ outText=""; el.output.classList.remove("empty"); el.output.innerHTML='<span class="caret"></span>'; }
 function appendOutput(chunk){ outText+=chunk; el.output.innerHTML=escapeHtml(outText)+'<span class="caret"></span>'; el.output.scrollTop=el.output.scrollHeight; }
-function finishOutput(){ el.output.textContent=outText; el.copy.hidden=el.clear.hidden=outText.length===0; }
-function writeError(msg){ el.output.classList.remove("empty"); el.output.textContent=msg; el.copy.hidden=el.clear.hidden=true; }
+function finishOutput(){ el.output.textContent=outText; const has=outText.length>0; el.copy.hidden=el.clear.hidden=el.pdf.hidden=!has; }
+function writeError(msg){ el.output.classList.remove("empty"); el.output.textContent=msg; el.copy.hidden=el.clear.hidden=el.pdf.hidden=true; el.usage.hidden=true; }
 function escapeHtml(s){ return s.replace(/[&<>]/g,c=>({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c])); }
 function beginRun(){ taskButtons.forEach(b=>b.disabled=true); el.stop.hidden=false; }
 function endRun(){ taskButtons.forEach(b=>b.disabled=false); el.stop.hidden=true; currentController=null; }
 
 taskButtons.forEach(b=>b.addEventListener("click",()=>run(b.dataset.task)));
 el.stop.addEventListener("click",()=>{ currentController&&currentController.abort(); webllmEngine&&webllmEngine.interruptGenerate&&webllmEngine.interruptGenerate(); });
-el.copy.addEventListener("click",async()=>{ try{ await navigator.clipboard.writeText(outText); el.copy.textContent="Copied"; setTimeout(()=>el.copy.textContent="Copy",1200);}catch(e){} });
-el.clear.addEventListener("click",()=>{ outText=""; el.output.className="output empty"; el.output.textContent="Your result will appear here."; el.copy.hidden=el.clear.hidden=true; });
+el.copy.addEventListener("click",async()=>{ try{ await navigator.clipboard.writeText(outText); flash(el.copy,"Copied"); }catch(e){} });
+el.clear.addEventListener("click",()=>{ outText=""; el.output.className="output empty"; el.output.textContent="Your result will appear here."; el.copy.hidden=el.clear.hidden=el.pdf.hidden=true; el.usage.hidden=true; });
+el.pdf.addEventListener("click",()=>{ el.export.open=true; el.export.scrollIntoView({behavior:"smooth",block:"nearest"}); el.exTitle.focus(); });
+el.exBtn.addEventListener("click",exportPdf);
 el.file.addEventListener("change",e=>onFile(e.target.files&&e.target.files[0]));
 el.input.addEventListener("input",()=>{ if(docDerived){ docDerived=false; setFileStat(""); } });
 el.input.addEventListener("dragover",e=>{ e.preventDefault(); el.input.classList.add("drop"); });
 el.input.addEventListener("dragleave",()=>el.input.classList.remove("drop"));
 el.input.addEventListener("drop",async e=>{ e.preventDefault(); el.input.classList.remove("drop"); const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) onFile(f); });
-
-// Key controls
 el.saveKey.addEventListener("click",()=>{ const k=el.apiKey.value.trim(); saveKey(k); el.apiKey.value=""; if(k){ el.settings.open=false; checkAvailability(); } });
 el.clearKey.addEventListener("click",()=>{ saveKey(""); el.apiKey.value=""; checkAvailability(); });
 
 if("serviceWorker" in navigator){ window.addEventListener("load",()=>{ navigator.serviceWorker.register("./sw.js").catch(()=>{}); }); }
+el.exDate.value=new Date().toLocaleDateString();
+if(getKey()) requestPersistence();
 refreshKeyState();
 checkAvailability();
 </script>
