@@ -4,10 +4,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Local Reading Companion</title>
-<meta name="description" content="Summarize, explain, and translate any text on your own device. Nothing is uploaded." />
+<meta name="description" content="Summarize, explain, and translate any text, doc, PDF, or image on your own device. Nothing is uploaded." />
 <meta name="theme-color" content="#16624B" />
 
-<!-- iOS home-screen packaging: iOS ignores the manifest icon, so it needs these. -->
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -19,18 +18,14 @@
   LOCAL READING COMPANION  —  on-device AI PWA
   Designed & Architected by Krishnamurthy Kandregula · Made by Claude
   ============================================================================
-  ENGINE CASCADE (best available wins, per device):
-    1. Chrome Prompt API (Gemini Nano)   — desktop Chrome 148+. No download you manage.
-    2. WebGPU small model (WebLLM)        — iPhone iOS 26+, and any browser w/ WebGPU
-                                            but no Prompt API. ~a few hundred MB, once.
-    3. Hosted fallback (your proxy)       — everything else. Set HOSTED_ENDPOINT.
-  Each tier auto-falls-through to the next on unavailability or failure.
-
-  iPhone notes:
-    - Gemini Nano does NOT exist on iOS (all iOS browsers are WebKit), so iPhone
-      runs tier 2 or 3. Tier 2 needs iOS 26+ (WebGPU) and a recent device.
-    - No iOS install prompt: users add via Share -> Add to Home Screen.
-    - WebLLM caches model weights itself (Cache API); the shell sw.js does not.
+  INPUT: paste text, or drop/choose .txt .md .docx .pdf or an image.
+         docx -> mammoth, pdf -> pdf.js, image -> Tesseract OCR. All client-side.
+  ENGINE CASCADE (best available wins, auto-falls-through on failure):
+    1. Chrome Prompt API (Gemini Nano)  — desktop Chrome 148+.
+    2. WebGPU small model (WebLLM)       — iPhone iOS 26+ / any WebGPU browser.
+                                           Uses a TINY model on phones (iOS buffer limits).
+    3. Hosted fallback (your proxy)      — set HOSTED_ENDPOINT. Reliable everywhere.
+  If all tiers fail, the real error is shown in the result box.
   ============================================================================
 -->
 
@@ -48,12 +43,7 @@
   }
   *{box-sizing:border-box}
   html,body{margin:0}
-  body{
-    background:var(--paper); color:var(--ink);
-    font-family:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-    font-size:16px; line-height:1.5; -webkit-font-smoothing:antialiased;
-    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-  }
+  body{background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
   .wrap{max-width:var(--maxw);margin:0 auto;padding:20px 20px 48px}
   header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 0 22px;border-bottom:1px solid var(--line)}
   .mark{font-weight:600;font-size:1.02rem;letter-spacing:-0.01em}
@@ -73,9 +63,13 @@
   .field-label{font-size:.86rem;color:var(--muted);margin-bottom:8px}
   textarea{width:100%;min-height:172px;resize:vertical;padding:14px 15px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);color:var(--ink);font-family:"Newsreader",Georgia,serif;font-size:1.06rem;line-height:1.6}
   textarea::placeholder{color:#9AA29D;font-style:italic}
-  textarea:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+  textarea:focus-visible,select:focus-visible,button:focus-visible,.filebtn:focus-within{outline:2px solid var(--focus);outline-offset:2px}
   textarea.drop{border-color:var(--pine);background:#EEF5F1}
-  .actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:14px}
+  .filerow{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
+  .filebtn{display:inline-block;cursor:pointer;border:1px solid var(--line);border-radius:var(--radius);padding:8px 14px;font-size:.86rem;background:var(--surface);color:var(--ink)}
+  .filebtn:hover{border-color:var(--ink)}
+  .filestat{font-size:.82rem;color:var(--muted)}
+  .actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:16px}
   button{font:inherit;cursor:pointer;border-radius:var(--radius);padding:10px 16px;border:1px solid var(--ink);background:var(--ink);color:var(--paper);font-weight:500;transition:transform .04s ease}
   button:active{transform:translateY(1px)}
   button.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
@@ -89,7 +83,7 @@
   .out-tools{display:flex;gap:8px}
   .out-tools button{padding:6px 11px;font-size:.82rem;background:transparent;color:var(--muted);border-color:var(--line)}
   .out-tools button:hover{color:var(--ink)}
-  .output{border:1px solid var(--line);border-radius:var(--radius);background:var(--output-bg);min-height:120px;padding:18px 20px;font-family:"Newsreader",Georgia,serif;font-size:1.12rem;line-height:1.66;white-space:pre-wrap;word-break:break-word}
+  .output{border:1px solid var(--line);border-radius:var(--radius);background:var(--output-bg);min-height:120px;max-height:60vh;overflow:auto;padding:18px 20px;font-family:"Newsreader",Georgia,serif;font-size:1.12rem;line-height:1.66;white-space:pre-wrap;word-break:break-word}
   .output.empty{color:var(--muted);font-style:italic;display:flex;align-items:center}
   .output .caret{display:inline-block;width:2px;height:1.05em;background:var(--pine);margin-left:1px;vertical-align:text-bottom;animation:blink 1s steps(1) infinite}
   @keyframes blink{50%{opacity:0}}
@@ -98,11 +92,7 @@
   .note code{font-family:"IBM Plex Mono",ui-monospace,monospace;background:#E4E8E5;padding:1px 5px;border-radius:4px}
   footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);font-size:.8rem;color:var(--muted)}
   footer b{font-weight:500;color:var(--ink)}
-  @media (max-width:520px){
-    header{flex-direction:column;align-items:flex-start;gap:12px}
-    .translate-group{width:100%}
-    .translate-group button{flex:1}
-  }
+  @media (max-width:520px){header{flex-direction:column;align-items:flex-start;gap:12px}.translate-group{width:100%}.translate-group button{flex:1}}
 </style>
 </head>
 <body>
@@ -117,8 +107,14 @@
   </header>
 
   <div class="field">
-    <div class="field-label">Paste text, or drop a .txt file</div>
-    <textarea id="input" placeholder="Paste an article, an email, a passage — anything you want summarized, explained, or translated. It stays on this device."></textarea>
+    <div class="field-label">Paste text, drop a file, or choose one — .txt .md .docx .pdf or an image</div>
+    <textarea id="input" placeholder="Paste anything, or add a file below. Text, Word docs, PDFs, and images are all read on this device."></textarea>
+    <div class="filerow">
+      <label class="filebtn">Choose file
+        <input type="file" id="file" accept=".txt,.md,.docx,.pdf,image/*" hidden />
+      </label>
+      <span class="filestat" id="fileStat"></span>
+    </div>
   </div>
 
   <div class="actions">
@@ -151,9 +147,7 @@
 
   <div class="note" id="hint"></div>
 
-  <footer>
-    Designed &amp; Architected by <b>Krishnamurthy Kandregula</b> · Made by Claude
-  </footer>
+  <footer>Designed &amp; Architected by <b>Krishnamurthy Kandregula</b> · Made by Claude</footer>
 </div>
 
 <script>
@@ -162,20 +156,14 @@
 /* ========================================================================
    1. CONFIG
    ======================================================================== */
+const HOSTED_ENDPOINT = "";   // Tier 3. Wire to your proxy for guaranteed iPhone support.
 
-// Tier 3 fallback. Wire to YOUR proxy (keeps any API key server-side).
-// Leave "" to run on-device only.
-const HOSTED_ENDPOINT = "";
-
-// Tier 2 (WebGPU) library + model. The picker below falls back gracefully
-// if this exact id ever drifts. Smaller = friendlier to iPhones.
 const WEBLLM_CDN = "https://esm.run/@mlc-ai/web-llm";
-const MODEL_PREFS = [
-  "Llama-3.2-1B-Instruct-q4f16_1-MLC",
-  "Qwen2.5-1.5B-Instruct-q4f16_1-MLC",
-  "Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
-  "SmolLM2-1.7B-Instruct-q4f16_1-MLC"
-];
+// Phones have tight WebGPU buffer limits -> use tiny models. Desktop can go bigger.
+const MODEL_PREFS_MOBILE  = ["Qwen2.5-0.5B-Instruct-q4f16_1-MLC","SmolLM2-360M-Instruct-q4f16_1-MLC","TinyLlama-1.1B-Chat-v1.0-q4f16_1-MLC","Llama-3.2-1B-Instruct-q4f16_1-MLC"];
+const MODEL_PREFS_DESKTOP = ["Llama-3.2-1B-Instruct-q4f16_1-MLC","Qwen2.5-1.5B-Instruct-q4f16_1-MLC","Qwen2.5-0.5B-Instruct-q4f16_1-MLC","SmolLM2-1.7B-Instruct-q4f16_1-MLC"];
+
+const IS_MOBILE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || navigator.maxTouchPoints > 1;
 
 const SYSTEM_PROMPTS = {
   summarize: "You are a concise summarizer. Return the key points of the text as a short, faithful summary. No preamble, no opinions.",
@@ -186,62 +174,101 @@ const SYSTEM_PROMPTS = {
 /* ========================================================================
    2. STATE + ELEMENTS
    ======================================================================== */
-
 const el = {
-  status: document.getElementById("status"),
-  statusText: document.getElementById("statusText"),
-  input: document.getElementById("input"),
-  output: document.getElementById("output"),
-  hint: document.getElementById("hint"),
-  stop: document.getElementById("btnStop"),
-  copy: document.getElementById("btnCopy"),
-  clear: document.getElementById("btnClear"),
-  lang: document.getElementById("lang"),
+  status:document.getElementById("status"), statusText:document.getElementById("statusText"),
+  input:document.getElementById("input"), output:document.getElementById("output"),
+  hint:document.getElementById("hint"), stop:document.getElementById("btnStop"),
+  copy:document.getElementById("btnCopy"), clear:document.getElementById("btnClear"),
+  lang:document.getElementById("lang"), file:document.getElementById("file"), fileStat:document.getElementById("fileStat"),
 };
 const taskButtons = [...document.querySelectorAll("[data-task]")];
-
-let currentController = null;   // AbortController for the active run
-let webllmModule = null;
-let webllmEngine = null;
+let currentController = null, webllmModule = null, webllmEngine = null, webgpuReady = false;
 
 /* ========================================================================
-   3. CAPABILITY DETECTION  (the hero resolves here)
+   3. CAPABILITY DETECTION
    ======================================================================== */
-
 function hasPromptAPI(){ return "LanguageModel" in self; }
-function webgpuSupported(){ return "gpu" in navigator; }
-
-function setStatus(state, text){
-  el.status.dataset.state = state;
-  el.statusText.textContent = text;
+async function probeWebGPU(){
+  if(!("gpu" in navigator)) return false;
+  try{ const a = await navigator.gpu.requestAdapter(); webgpuReady = !!a; return webgpuReady; }
+  catch(e){ webgpuReady = false; return false; }
 }
+function setStatus(state, text){ el.status.dataset.state = state; el.statusText.textContent = text; }
 
 async function checkAvailability(){
-  // Tier 1: Chrome Prompt API (Gemini Nano) — desktop Chrome only.
   if(hasPromptAPI()){
     try{
       const a = await LanguageModel.availability();
       if(a === "available"){ setStatus("ready","On-device · ready"); el.hint.textContent=""; return; }
       if(a === "downloadable"){ setStatus("ready","On-device · ready to download"); el.hint.textContent="First run downloads Gemini Nano (~2.7–4GB) once, then works offline."; return; }
       if(a === "downloading"){ setStatus("downloading","On-device · downloading…"); return; }
-    }catch(e){ /* fall through */ }
+    }catch(e){}
   }
-  // Tier 2: WebGPU small model — iPhone iOS 26+, and other WebGPU browsers.
-  if(webgpuSupported()){
+  if(await probeWebGPU()){
     setStatus("ready","On-device · WebGPU");
-    el.hint.textContent = "First run downloads a small model once (a few hundred MB), then works offline. On iPhone this needs iOS 26+.";
+    el.hint.textContent = "First run downloads a small model once, then works offline. On iPhone this needs iOS 26+.";
     return;
   }
-  // Tier 3: hosted, or nothing.
-  if(HOSTED_ENDPOINT){ setStatus("ready","Hosted model"); el.hint.textContent="This device has no on-device model, so requests use your hosted model."; return; }
+  if(HOSTED_ENDPOINT){ setStatus("ready","Hosted model"); el.hint.textContent="No on-device model here, so requests use your hosted model."; return; }
   setStatus("unavailable","Not available");
-  el.hint.innerHTML = "No on-device model here. On iPhone, update to iOS 26+ for WebGPU, or set a hosted fallback in the code.";
+  el.hint.innerHTML = "No on-device model. On iPhone, update to iOS 26+ for WebGPU, or set a hosted fallback in the code.";
 }
 
 /* ========================================================================
-   4. RUN A TASK — cascade through whatever tiers this device supports
+   4. FILE INPUT — read docx / pdf / image on-device, into the textarea
    ======================================================================== */
+function setFileStat(t){ el.fileStat.textContent = t; }
+function loadScript(src){
+  return new Promise((res,rej)=>{ const s=document.createElement("script"); s.src=src; s.onload=res; s.onerror=()=>rej(new Error("Failed to load "+src)); document.head.appendChild(s); });
+}
+async function extractText(file){
+  const name=(file.name||"").toLowerCase(), type=file.type||"";
+  if(type.startsWith("text")||name.endsWith(".txt")||name.endsWith(".md")) return (await file.text());
+  if(name.endsWith(".docx")) return await extractDocx(file);
+  if(name.endsWith(".pdf")||type==="application/pdf") return await extractPdf(file);
+  if(type.startsWith("image/")) return await extractImage(file);
+  throw new Error("Unsupported file type. Use .txt, .md, .docx, .pdf, or an image.");
+}
+async function extractDocx(file){
+  if(!window.mammoth) await loadScript("https://cdn.jsdelivr.net/npm/mammoth@1/mammoth.browser.min.js");
+  const r = await window.mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+  return (r.value||"").trim();
+}
+async function extractPdf(file){
+  const pdfjs = await import("https://cdn.jsdelivr.net/npm/pdfjs-dist@4/build/pdf.min.mjs");
+  pdfjs.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4/build/pdf.worker.min.mjs";
+  const doc = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
+  const pages=[];
+  for(let i=1;i<=doc.numPages;i++){
+    setFileStat("Reading PDF page " + i + "/" + doc.numPages + "…");
+    const tc = await (await doc.getPage(i)).getTextContent();
+    pages.push(tc.items.map(it=>it.str).join(" "));
+  }
+  const text = pages.join("\n\n").trim();
+  if(!text) throw new Error("No selectable text — this PDF looks scanned. Export a page as an image to OCR it.");
+  return text;
+}
+async function extractImage(file){
+  if(!window.Tesseract) await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js");
+  setFileStat("Reading image (OCR) — first run downloads the OCR model…");
+  const { data } = await window.Tesseract.recognize(file, "eng", { logger:m=>{ if(m.status==="recognizing text") setFileStat("OCR " + Math.round(m.progress*100) + "%"); } });
+  const text=(data.text||"").trim();
+  if(!text) throw new Error("No text found in the image.");
+  return text;   // English OCR by default; add lang packs for Telugu/Hindi source text.
+}
+async function onFile(file){
+  if(!file) return;
+  setFileStat("Reading " + file.name + "…");
+  try{
+    const text = await extractText(file);
+    el.input.value = text;
+    setFileStat(file.name + " · " + text.length.toLocaleString() + " characters read");
+  }catch(err){ setFileStat("Couldn't read that file: " + (err.message||err)); }
+}
 
+/* ========================================================================
+   5. RUN A TASK — cascade through supported tiers
+   ======================================================================== */
 async function run(task){
   const text = el.input.value.trim();
   if(!text){ el.input.focus(); return; }
@@ -249,57 +276,57 @@ async function run(task){
 
   const tiers = [];
   if(hasPromptAPI()) tiers.push("prompt");
-  if(webgpuSupported()) tiers.push("webgpu");
+  if(webgpuReady || ("gpu" in navigator)) tiers.push("webgpu");
   if(HOSTED_ENDPOINT) tiers.push("hosted");
-
   if(tiers.length === 0){ writeError("No model available on this device. Open on desktop Chrome 148+, an iPhone on iOS 26+, or set HOSTED_ENDPOINT."); return; }
 
   beginRun();
-  let done = false, lastErr = null;
+  let done=false, lastErr=null;
   for(const tier of tiers){
     try{
-      if(tier === "prompt")      await runPromptAPI(system, text);
-      else if(tier === "webgpu") await runWebGPU(system, text);
-      else                       await runHosted(task, system, text);
-      done = true; break;
+      if(tier==="prompt") await runPromptAPI(system, text);
+      else if(tier==="webgpu") await runWebGPU(system, text);
+      else await runHosted(task, system, text);
+      done=true; break;
     }catch(err){
-      if(err && err.name === "AbortError"){ done = true; break; }   // user stopped
-      lastErr = err;                                                 // try next tier
-      console.warn("tier '" + tier + "' failed, trying next:", err);
+      if(err && err.name === "AbortError"){ done=true; break; }
+      lastErr=err; console.warn("tier '"+tier+"' failed:", err);
     }
   }
-  if(!done) writeError("That request didn't complete on any available engine. Try again, or shorten the text.");
+  if(!done){
+    const msg = lastErr ? (lastErr.message || String(lastErr)) : "unknown error";
+    writeError("Couldn't complete on this device.\n\nReason: " + msg + "\n\nIf WebGPU keeps failing on iPhone, wiring the hosted fallback (HOSTED_ENDPOINT) is the reliable path.");
+  }
   endRun();
 }
 
-/* ---- Tier 1: Chrome Prompt API (Gemini Nano) ---- */
 async function runPromptAPI(system, text){
   currentController = new AbortController();
   const session = await LanguageModel.create({
-    initialPrompts: [{ role: "system", content: system }],
-    signal: currentController.signal,
-    monitor(m){ m.addEventListener("downloadprogress", e => setStatus("downloading","On-device · downloading " + Math.round((e.loaded||0)*100) + "%")); }
+    initialPrompts:[{ role:"system", content:system }], signal:currentController.signal,
+    monitor(m){ m.addEventListener("downloadprogress", e => setStatus("downloading","On-device · downloading "+Math.round((e.loaded||0)*100)+"%")); }
   });
-  setStatus("ready","On-device · ready");
-  startOutput();
-  const stream = session.promptStreaming(text, { signal: currentController.signal });
-  for await (const chunk of stream) appendOutput(chunk);   // Chrome streams deltas
-  finishOutput();
-  session.destroy && session.destroy();
+  setStatus("ready","On-device · ready"); startOutput();
+  const stream = session.promptStreaming(text, { signal:currentController.signal });
+  for await (const chunk of stream) appendOutput(chunk);
+  finishOutput(); session.destroy && session.destroy();
 }
 
-/* ---- Tier 2: WebGPU small model via WebLLM (iPhone-capable) ---- */
 function pickModel(mod){
-  const ids = mod.prebuiltAppConfig.model_list.map(m => m.model_id);
-  for(const p of MODEL_PREFS) if(ids.includes(p)) return p;
-  return ids.find(id => /Instruct|-it-/i.test(id)) || ids[0];
+  const cfg = mod && mod.prebuiltAppConfig;
+  if(!cfg || !Array.isArray(cfg.model_list)) throw new Error("WebLLM model list unavailable");
+  const ids = cfg.model_list.map(m => m.model_id);
+  const prefs = IS_MOBILE ? MODEL_PREFS_MOBILE : MODEL_PREFS_DESKTOP;
+  for(const p of prefs) if(ids.includes(p)) return p;
+  return ids.find(id => /Instruct|-it-|Chat/i.test(id)) || ids[0];
 }
 async function ensureWebLLM(){
   if(!webllmModule) webllmModule = await import(WEBLLM_CDN);
   if(!webllmEngine){
     const model = pickModel(webllmModule);
+    setStatus("downloading","On-device · loading " + model.split("-").slice(0,2).join(" ") + "…");
     webllmEngine = await webllmModule.CreateMLCEngine(model, {
-      initProgressCallback: r => setStatus("downloading","On-device · " + Math.round((r.progress||0)*100) + "%")
+      initProgressCallback: r => setStatus("downloading","On-device · "+Math.round((r.progress||0)*100)+"%")
     });
   }
   return webllmEngine;
@@ -307,76 +334,57 @@ async function ensureWebLLM(){
 async function runWebGPU(system, text){
   currentController = new AbortController();
   const engine = await ensureWebLLM();
-  setStatus("ready","On-device · WebGPU");
-  startOutput();
-  const stream = await engine.chat.completions.create({
-    stream: true,
-    messages: [{ role:"system", content:system }, { role:"user", content:text }]
-  });
+  setStatus("ready","On-device · WebGPU"); startOutput();
+  const stream = await engine.chat.completions.create({ stream:true, messages:[{role:"system",content:system},{role:"user",content:text}] });
   for await (const chunk of stream){
     if(currentController.signal.aborted){ engine.interruptGenerate && engine.interruptGenerate(); throw new DOMException("stopped","AbortError"); }
-    const delta = chunk.choices && chunk.choices[0] && chunk.choices[0].delta ? chunk.choices[0].delta.content : "";
-    if(delta) appendOutput(delta);
+    const d = chunk.choices && chunk.choices[0] && chunk.choices[0].delta ? chunk.choices[0].delta.content : "";
+    if(d) appendOutput(d);
   }
   finishOutput();
 }
 
-/* ---- Tier 3: hosted fallback (wire callHostedModel to your proxy) ---- */
 async function runHosted(task, system, text){
   currentController = new AbortController();
-  const body = await callHostedModel({ task, system, text, signal: currentController.signal });
+  const body = await callHostedModel({ task, system, text, signal:currentController.signal });
   startOutput();
   if(body && typeof body.getReader === "function"){
-    const reader = body.getReader(), dec = new TextDecoder();
-    for(;;){ const { value, done } = await reader.read(); if(done) break; appendOutput(dec.decode(value,{stream:true})); }
+    const reader=body.getReader(), dec=new TextDecoder();
+    for(;;){ const {value,done}=await reader.read(); if(done) break; appendOutput(dec.decode(value,{stream:true})); }
   }else if(typeof body === "string"){ appendOutput(body); }
   finishOutput();
 }
 async function callHostedModel({ task, system, text, signal }){
-  throw new Error("no-backend");
-  /*  Example:
-  const res = await fetch(HOSTED_ENDPOINT, {
-    method:"POST", headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({ task, system, text }), signal
-  });
-  if(!res.ok) throw new Error("hosted " + res.status);
-  return res.body;           // ReadableStream of UTF-8 text (or return a string)
-  */
+  throw new Error("hosted fallback not configured (HOSTED_ENDPOINT is empty)");
+  /*  const res = await fetch(HOSTED_ENDPOINT, { method:"POST", headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ task, system, text }), signal });
+      if(!res.ok) throw new Error("hosted " + res.status);
+      return res.body;  */
 }
 
 /* ========================================================================
-   5. OUTPUT + UI PLUMBING
+   6. OUTPUT + UI
    ======================================================================== */
-
-let outText = "";
+let outText="";
 function startOutput(){ outText=""; el.output.classList.remove("empty"); el.output.innerHTML='<span class="caret"></span>'; }
-function appendOutput(chunk){ outText += chunk; el.output.innerHTML = escapeHtml(outText) + '<span class="caret"></span>'; el.output.scrollTop = el.output.scrollHeight; }
-function finishOutput(){ el.output.textContent = outText; el.copy.hidden = el.clear.hidden = outText.length === 0; }
-function writeError(msg){ el.output.classList.remove("empty"); el.output.textContent = msg; }
-function escapeHtml(s){ return s.replace(/[&<>]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c])); }
+function appendOutput(chunk){ outText+=chunk; el.output.innerHTML=escapeHtml(outText)+'<span class="caret"></span>'; el.output.scrollTop=el.output.scrollHeight; }
+function finishOutput(){ el.output.textContent=outText; el.copy.hidden=el.clear.hidden=outText.length===0; }
+function writeError(msg){ el.output.classList.remove("empty"); el.output.textContent=msg; el.copy.hidden=el.clear.hidden=true; }
+function escapeHtml(s){ return s.replace(/[&<>]/g,c=>({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c])); }
+function beginRun(){ taskButtons.forEach(b=>b.disabled=true); el.stop.hidden=false; }
+function endRun(){ taskButtons.forEach(b=>b.disabled=false); el.stop.hidden=true; currentController=null; }
 
-function beginRun(){ taskButtons.forEach(b => b.disabled = true); el.stop.hidden = false; }
-function endRun(){ taskButtons.forEach(b => b.disabled = false); el.stop.hidden = true; currentController = null; }
+taskButtons.forEach(b=>b.addEventListener("click",()=>run(b.dataset.task)));
+el.stop.addEventListener("click",()=>{ currentController&&currentController.abort(); webllmEngine&&webllmEngine.interruptGenerate&&webllmEngine.interruptGenerate(); });
+el.copy.addEventListener("click",async()=>{ try{ await navigator.clipboard.writeText(outText); el.copy.textContent="Copied"; setTimeout(()=>el.copy.textContent="Copy",1200);}catch(e){} });
+el.clear.addEventListener("click",()=>{ outText=""; el.output.className="output empty"; el.output.textContent="Your result will appear here — and never leaves this device."; el.copy.hidden=el.clear.hidden=true; });
+el.file.addEventListener("change",e=>onFile(e.target.files&&e.target.files[0]));
 
-taskButtons.forEach(b => b.addEventListener("click", () => run(b.dataset.task)));
-el.stop.addEventListener("click", () => {
-  currentController && currentController.abort();
-  webllmEngine && webllmEngine.interruptGenerate && webllmEngine.interruptGenerate();
-});
-el.copy.addEventListener("click", async () => { try{ await navigator.clipboard.writeText(outText); el.copy.textContent="Copied"; setTimeout(()=>el.copy.textContent="Copy",1200);}catch(e){} });
-el.clear.addEventListener("click", () => { outText=""; el.output.className="output empty"; el.output.textContent="Your result will appear here — and never leaves this device."; el.copy.hidden=el.clear.hidden=true; });
+el.input.addEventListener("dragover",e=>{ e.preventDefault(); el.input.classList.add("drop"); });
+el.input.addEventListener("dragleave",()=>el.input.classList.remove("drop"));
+el.input.addEventListener("drop",async e=>{ e.preventDefault(); el.input.classList.remove("drop"); const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) onFile(f); });
 
-el.input.addEventListener("dragover", e => { e.preventDefault(); el.input.classList.add("drop"); });
-el.input.addEventListener("dragleave", () => el.input.classList.remove("drop"));
-el.input.addEventListener("drop", async e => {
-  e.preventDefault(); el.input.classList.remove("drop");
-  const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-  if(file && file.type.startsWith("text")) el.input.value = await file.text();
-});
-
-if("serviceWorker" in navigator){
-  window.addEventListener("load", () => { navigator.serviceWorker.register("./sw.js").catch(()=>{}); });
-}
+if("serviceWorker" in navigator){ window.addEventListener("load",()=>{ navigator.serviceWorker.register("./sw.js").catch(()=>{}); }); }
 
 checkAvailability();
 </script>
