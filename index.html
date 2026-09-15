@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Local Reading Companion</title>
+<meta name="description" content="Summarize, explain, and translate any text entirely on your own device. Nothing is uploaded." />
+<meta name="theme-color" content="#16624B" />
+
+<!--
+  ============================================================================
+  LOCAL READING COMPANION  —  on-device AI PWA skeleton
+  Designed & Architected by Krishnamurthy Kandregula · Made by Claude
+  ============================================================================
+  WHAT THIS IS
+    A single-file reading tool that runs inference on the user's machine via
+    Chrome's built-in Prompt API (Gemini Nano). No server calls, no keys, no
+    token bill. Falls back to a hosted endpoint you control when the on-device
+    model is absent.
+
+  THE THREE THINGS YOU'LL EXTEND
+    1. TASKS          — see the SYSTEM_PROMPTS object below.
+    2. HOSTED FALLBACK — see callHostedModel(); wire it to your own proxy.
+    3. OFFLINE        — ships with a sibling sw.js. App works without it,
+                        just no offline caching. Deploy both files together.
+
+  REQUIREMENTS FOR THE ON-DEVICE PATH (as of Chrome 148, Q2 2026)
+    Desktop Chrome (Win10/11, macOS 13+, Linux, Chromebook Plus). No iOS.
+    First use downloads ~2.7–4GB (Gemini Nano). We surface that as progress.
+  ============================================================================
+-->
+
+<!-- Manifest inlined as a data URI so the app stays single-file. -->
+<link rel="manifest" href='data:application/manifest+json,{"name":"Local Reading Companion","short_name":"Reading","start_url":"./","scope":"./","display":"standalone","background_color":"%23EFF1F1","theme_color":"%2316624B","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 512 512%22%3E%3Crect width=%22512%22 height=%22512%22 rx=%2296%22 fill=%22%2316624B%22/%3E%3Ctext x=%2250%25%22 y=%2258%25%22 font-family=%22Georgia,serif%22 font-size=%22300%22 fill=%22%23EFF1F1%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22%3ER%3C/text%3E%3C/svg%3E","sizes":"512x512","type":"image/svg+xml","purpose":"any"}]}' />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet" />
+
+<style>
+  :root{
+    --paper:#EFF1F1;
+    --surface:#FAFBFA;
+    --ink:#191D1C;
+    --muted:#59625E;
+    --line:#DCE0DD;
+    --pine:#16624B;      /* ready / on-device / live */
+    --amber:#B5791B;     /* downloading */
+    --clay:#A6442F;      /* unavailable / error */
+    --output-bg:#F1F5F2;
+    --focus:#2A7D63;
+    --radius:10px;
+    --maxw:760px;
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    font-size:16px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:20px 20px 48px}
+
+  /* ---- Header: name left, live on-device status right ---- */
+  header{
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding:14px 0 22px;border-bottom:1px solid var(--line);
+  }
+  .mark{font-weight:600;font-size:1.02rem;letter-spacing:-0.01em}
+  .mark span{color:var(--muted);font-weight:400}
+
+  /* The hero: this pill IS the promise of the product. */
+  .status{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:6px 12px 6px 10px;border-radius:999px;
+    border:1px solid var(--line);background:var(--surface);
+    font-size:0.82rem;color:var(--muted);white-space:nowrap;
+  }
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
+  .status[data-state="checking"] .dot{background:var(--muted);animation:pulse 1.2s ease-in-out infinite}
+  .status[data-state="ready"]{color:var(--pine);border-color:#BFD9CE}
+  .status[data-state="ready"] .dot{background:var(--pine);box-shadow:0 0 0 3px rgba(22,98,75,.14)}
+  .status[data-state="downloading"]{color:var(--amber);border-color:#E7D3A6}
+  .status[data-state="downloading"] .dot{background:var(--amber)}
+  .status[data-state="unavailable"]{color:var(--clay);border-color:#E4C2B8}
+  .status[data-state="unavailable"] .dot{background:var(--clay)}
+  @keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+  @media (prefers-reduced-motion:reduce){.status[data-state="checking"] .dot{animation:none}}
+
+  /* ---- Input ---- */
+  .field{margin-top:26px}
+  .field-label{font-size:.86rem;color:var(--muted);margin-bottom:8px}
+  textarea{
+    width:100%;min-height:172px;resize:vertical;
+    padding:14px 15px;border:1px solid var(--line);border-radius:var(--radius);
+    background:var(--surface);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:1.06rem;line-height:1.6;
+  }
+  textarea::placeholder{color:#9AA29D;font-style:italic}
+  textarea:focus-visible,select:focus-visible,button:focus-visible{
+    outline:2px solid var(--focus);outline-offset:2px;
+  }
+  textarea.drop{border-color:var(--pine);background:#EEF5F1}
+
+  /* ---- Actions ---- */
+  .actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:14px}
+  button{
+    font:inherit;cursor:pointer;border-radius:var(--radius);
+    padding:10px 16px;border:1px solid var(--ink);
+    background:var(--ink);color:var(--paper);font-weight:500;
+    transition:transform .04s ease;
+  }
+  button:active{transform:translateY(1px)}
+  button.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+  button:disabled{opacity:.42;cursor:not-allowed}
+  .translate-group{display:inline-flex;align-items:stretch;border:1px solid var(--ink);border-radius:var(--radius);overflow:hidden}
+  .translate-group button{border:none;border-radius:0}
+  .translate-group select{
+    border:none;border-left:1px solid rgba(239,241,241,.35);
+    background:var(--ink);color:var(--paper);font:inherit;padding:0 10px;cursor:pointer;
+  }
+  .spacer{flex:1 1 auto}
+
+  /* ---- Output: the reading surface ---- */
+  .out-head{display:flex;align-items:center;justify-content:space-between;margin-top:30px;margin-bottom:8px}
+  .out-head .field-label{margin:0}
+  .out-tools{display:flex;gap:8px}
+  .out-tools button{padding:6px 11px;font-size:.82rem;background:transparent;color:var(--muted);border-color:var(--line)}
+  .out-tools button:hover{color:var(--ink)}
+
+  .output{
+    border:1px solid var(--line);border-radius:var(--radius);
+    background:var(--output-bg);min-height:120px;padding:18px 20px;
+    font-family:"Newsreader",Georgia,serif;font-size:1.12rem;line-height:1.66;
+    white-space:pre-wrap;word-break:break-word;
+  }
+  .output.empty{color:var(--muted);font-style:italic;display:flex;align-items:center}
+  .output .caret{display:inline-block;width:2px;height:1.05em;background:var(--pine);margin-left:1px;vertical-align:text-bottom;animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  @media (prefers-reduced-motion:reduce){.output .caret{animation:none}}
+
+  .note{margin-top:12px;font-size:.82rem;color:var(--muted)}
+  .note code{font-family:"IBM Plex Mono",ui-monospace,monospace;background:#E4E8E5;padding:1px 5px;border-radius:4px}
+
+  footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);font-size:.8rem;color:var(--muted)}
+  footer b{font-weight:500;color:var(--ink)}
+
+  @media (max-width:520px){
+    header{flex-direction:column;align-items:flex-start;gap:12px}
+    .translate-group{width:100%}
+    .translate-group button{flex:1}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="mark">Local reading companion <span>— on-device</span></div>
+    <div class="status" id="status" data-state="checking" role="status" aria-live="polite">
+      <span class="dot" aria-hidden="true"></span>
+      <span id="statusText">Checking your device…</span>
+    </div>
+  </header>
+
+  <div class="field">
+    <div class="field-label">Paste text, or drop a .txt file</div>
+    <textarea id="input" placeholder="Paste an article, an email, a passage — anything you want summarized, explained, or translated. It stays on this device."></textarea>
+  </div>
+
+  <div class="actions">
+    <button id="btnSummarize" data-task="summarize">Summarize</button>
+    <button id="btnExplain" class="ghost" data-task="explain">Explain simply</button>
+    <div class="translate-group">
+      <button id="btnTranslate" data-task="translate">Translate</button>
+      <select id="lang" aria-label="Translate into">
+        <option value="Hindi">Hindi</option>
+        <option value="Telugu">Telugu</option>
+        <option value="Spanish">Spanish</option>
+        <option value="French">French</option>
+        <option value="German">German</option>
+        <option value="Japanese">Japanese</option>
+        <option value="Arabic">Arabic</option>
+      </select>
+    </div>
+    <div class="spacer"></div>
+    <button id="btnStop" class="ghost" hidden>Stop</button>
+  </div>
+
+  <div class="out-head">
+    <div class="field-label">Result</div>
+    <div class="out-tools">
+      <button id="btnCopy" hidden>Copy</button>
+      <button id="btnClear" hidden>Clear</button>
+    </div>
+  </div>
+  <div class="output empty" id="output" aria-live="polite">Your result will appear here — and never leaves this device.</div>
+
+  <div class="note" id="hint"></div>
+
+  <footer>
+    Designed &amp; Architected by <b>Krishnamurthy Kandregula</b> · Made by Claude
+  </footer>
+</div>
+
+<script>
+"use strict";
+
+/* =========================================================================
+   1. CONFIG
+   ========================================================================= */
+
+// Wire this to YOUR proxy for the hosted fallback (see callHostedModel).
+// Leave empty ("") to run on-device only.
+const HOSTED_ENDPOINT = "";
+
+const SYSTEM_PROMPTS = {
+  summarize: "You are a concise summarizer. Return the key points of the text as a short, faithful summary. No preamble, no opinions.",
+  explain:   "You explain text in plain language for a general reader. Keep the meaning exact; simplify only the wording.",
+  translate: (lang) => `You are a translator. Translate the user's text into ${lang}. Output only the translation, nothing else.`
+};
+
+/* =========================================================================
+   2. STATE + ELEMENTS
+   ========================================================================= */
+
+const el = {
+  status: document.getElementById("status"),
+  statusText: document.getElementById("statusText"),
+  input: document.getElementById("input"),
+  output: document.getElementById("output"),
+  hint: document.getElementById("hint"),
+  stop: document.getElementById("btnStop"),
+  copy: document.getElementById("btnCopy"),
+  clear: document.getElementById("btnClear"),
+  lang: document.getElementById("lang"),
+};
+const taskButtons = [...document.querySelectorAll("[data-task]")];
+
+let onDeviceState = "checking";   // checking | ready | downloading | unavailable
+let currentController = null;      // AbortController for the active run
+
+/* =========================================================================
+   3. ON-DEVICE AVAILABILITY  (the hero resolves here)
+   ========================================================================= */
+
+function hasPromptAPI(){ return "LanguageModel" in self; }
+
+function setStatus(state, text){
+  onDeviceState = state;
+  el.status.dataset.state = state;
+  el.statusText.textContent = text;
+}
+
+// Normalizes across Chrome versions: newer returns
+// "available" | "downloadable" | "downloading" | "unavailable".
+async function checkAvailability(){
+  if(!hasPromptAPI()){
+    setStatus("unavailable", HOSTED_ENDPOINT ? "Using hosted model" : "Not supported here");
+    showUnsupportedHint();
+    return;
+  }
+  try{
+    const a = await LanguageModel.availability();
+    if(a === "available"){
+      setStatus("ready", "On-device · ready");
+      el.hint.textContent = "";
+    }else if(a === "downloadable"){
+      setStatus("ready", "On-device · ready to download");
+      el.hint.textContent = "First run downloads Gemini Nano (~2.7–4GB) once, then works offline.";
+    }else if(a === "downloading"){
+      setStatus("downloading", "On-device · downloading…");
+    }else{
+      setStatus("unavailable", HOSTED_ENDPOINT ? "Using hosted model" : "Not available");
+      showUnsupportedHint();
+    }
+  }catch(err){
+    setStatus("unavailable", HOSTED_ENDPOINT ? "Using hosted model" : "Not available");
+    showUnsupportedHint();
+  }
+}
+
+function showUnsupportedHint(){
+  if(HOSTED_ENDPOINT){
+    el.hint.textContent = "The on-device model isn't available on this browser, so requests use your hosted model instead.";
+    return;
+  }
+  el.hint.innerHTML = "On-device AI needs desktop Chrome 148+ (Windows/macOS/Linux). Enable <code>chrome://flags/#prompt-api-for-gemini-nano</code> on older builds, or set a hosted fallback in the code.";
+}
+
+/* =========================================================================
+   4. RUN A TASK  (streaming, on-device first, hosted fallback)
+   ========================================================================= */
+
+async function run(task){
+  const text = el.input.value.trim();
+  if(!text){ el.input.focus(); return; }
+
+  const system = task === "translate"
+    ? SYSTEM_PROMPTS.translate(el.lang.value)
+    : SYSTEM_PROMPTS[task];
+
+  beginRun();
+
+  try{
+    if(hasPromptAPI() && onDeviceState !== "unavailable"){
+      await runOnDevice(system, text);
+    }else if(HOSTED_ENDPOINT){
+      await runHosted(task, system, text);
+    }else{
+      throw new Error("no-backend");
+    }
+  }catch(err){
+    if(err && err.name === "AbortError"){
+      // User pressed Stop — leave whatever streamed so far.
+    }else if(err && err.message === "no-backend"){
+      writeError("No model available. Open this on desktop Chrome 148+, or set HOSTED_ENDPOINT in the code.");
+    }else{
+      writeError("That request didn't complete. Try again, or shorten the text.");
+      console.error(err);
+    }
+  }finally{
+    endRun();
+  }
+}
+
+async function runOnDevice(system, text){
+  currentController = new AbortController();
+
+  // create() triggers the model download on first use; monitor reports progress.
+  const session = await LanguageModel.create({
+    initialPrompts: [{ role: "system", content: system }],
+    signal: currentController.signal,
+    monitor(m){
+      m.addEventListener("downloadprogress", (e) => {
+        const pct = Math.round((e.loaded || 0) * 100);
+        setStatus("downloading", `On-device · downloading ${pct}%`);
+      });
+    }
+  });
+
+  setStatus("ready", "On-device · ready");
+  startOutput();
+
+  // Current Chrome streams *incremental* chunks (deltas). Append them.
+  const stream = session.promptStreaming(text, { signal: currentController.signal });
+  for await (const chunk of stream){
+    appendOutput(chunk);
+  }
+
+  finishOutput();
+  session.destroy?.();
+}
+
+// ---- Hosted fallback: wire to YOUR endpoint. This is a stub. ------------
+// Expected shape below assumes your proxy streams plain text chunks. Adapt
+// to your provider (Anthropic / OpenAI / your own) and keep the key server-side.
+async function runHosted(task, system, text){
+  currentController = new AbortController();
+  const body = await callHostedModel({ task, system, text, signal: currentController.signal });
+  startOutput();
+
+  if(body && typeof body.getReader === "function"){
+    const reader = body.getReader();
+    const dec = new TextDecoder();
+    for(;;){
+      const { value, done } = await reader.read();
+      if(done) break;
+      appendOutput(dec.decode(value, { stream:true }));
+    }
+  }else if(typeof body === "string"){
+    appendOutput(body);
+  }
+  finishOutput();
+}
+
+// Replace the throw with your fetch(). Return either a ReadableStream (to
+// stream) or a string (for a one-shot response).
+async function callHostedModel({ task, system, text, signal }){
+  throw new Error("no-backend");
+  /*  Example:
+  const res = await fetch(HOSTED_ENDPOINT, {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({ task, system, text }),
+    signal
+  });
+  if(!res.ok) throw new Error("hosted "+res.status);
+  return res.body;            // ReadableStream of UTF-8 text
+  */
+}
+
+/* =========================================================================
+   5. OUTPUT + UI PLUMBING
+   ========================================================================= */
+
+let outText = "";
+
+function startOutput(){
+  outText = "";
+  el.output.classList.remove("empty");
+  el.output.innerHTML = '<span class="caret"></span>';
+}
+function appendOutput(chunk){
+  outText += chunk;
+  el.output.innerHTML = escapeHtml(outText) + '<span class="caret"></span>';
+}
+function finishOutput(){
+  el.output.textContent = outText;
+  el.copy.hidden = el.clear.hidden = outText.length === 0;
+}
+function writeError(msg){
+  el.output.classList.remove("empty");
+  el.output.textContent = msg;
+}
+function escapeHtml(s){
+  return s.replace(/[&<>]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;" }[c]));
+}
+
+function beginRun(){
+  taskButtons.forEach(b => b.disabled = true);
+  el.stop.hidden = false;
+}
+function endRun(){
+  taskButtons.forEach(b => b.disabled = false);
+  el.stop.hidden = true;
+  currentController = null;
+}
+
+/* ---- Events ---- */
+taskButtons.forEach(b => b.addEventListener("click", () => run(b.dataset.task)));
+el.stop.addEventListener("click", () => currentController?.abort());
+el.copy.addEventListener("click", async () => {
+  try{ await navigator.clipboard.writeText(outText); el.copy.textContent = "Copied"; setTimeout(()=>el.copy.textContent="Copy",1200);}catch{}
+});
+el.clear.addEventListener("click", () => {
+  outText = "";
+  el.output.className = "output empty";
+  el.output.textContent = "Your result will appear here — and never leaves this device.";
+  el.copy.hidden = el.clear.hidden = true;
+});
+
+// Drag & drop a .txt file into the textarea.
+el.input.addEventListener("dragover", e => { e.preventDefault(); el.input.classList.add("drop"); });
+el.input.addEventListener("dragleave", () => el.input.classList.remove("drop"));
+el.input.addEventListener("drop", async e => {
+  e.preventDefault(); el.input.classList.remove("drop");
+  const file = e.dataTransfer?.files?.[0];
+  if(file && file.type.startsWith("text")) el.input.value = await file.text();
+});
+
+/* =========================================================================
+   6. PWA SERVICE WORKER  (optional sibling; app runs fine without it)
+   ========================================================================= */
+if("serviceWorker" in navigator){
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {
+      // No sw.js deployed → no offline caching. Not an error for the app.
+    });
+  });
+}
+
+/* ---- Go ---- */
+checkAvailability();
+</script>
+</body>
+</html>
