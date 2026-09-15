@@ -6,7 +6,7 @@
    still works offline by falling back to the cached copy. Fonts and libraries
    stay cache-first for speed; model weights are cached by WebLLM itself. */
 
-const CACHE = "reading-companion-v2";     // bump this string on any deploy to force a refresh
+const CACHE = "reading-companion-v4";     // bump this string on any deploy to force a refresh
 const SHELL = ["./", "./index.html"];
 
 self.addEventListener("install", (e) => {
